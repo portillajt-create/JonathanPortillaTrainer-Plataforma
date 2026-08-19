@@ -66,8 +66,8 @@ def render_auth_screen() -> None:
             try:
                 signup_cliente(email_signup, password_signup, nombre)
                 st.success(
-                    "Cuenta creada. Revisa tu correo si se requiere confirmación, "
-                    "luego inicia sesión desde la pestaña 'Iniciar sesión'."
+                    "✅ ¡Cuenta creada con éxito! Ve a la pestaña **'Iniciar sesión'** de arriba "
+                    "y entra con el correo y la contraseña que acabas de registrar."
                 )
             except Exception as exc:
                 st.error(f"No se pudo crear la cuenta: {exc}")
