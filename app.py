@@ -19,7 +19,15 @@ from streamlit_option_menu import option_menu
 
 from modules import admin_clientes, checkin, hevy_integration, nutricion, onboarding, rutinas
 from utils import theme
-from utils.auth import current_role, is_authenticated, login, logout, signup_cliente
+from utils.auth import (
+    complete_password_reset,
+    current_role,
+    is_authenticated,
+    login,
+    logout,
+    request_password_reset,
+    signup_cliente,
+)
 from utils.branding import FAVICON, ICON, LOGIN_HERO, LOGO_FULL, NOMBRE
 from utils.queries import get_onboarding, get_suscripcion_vista, list_clientes
 from utils.session import init_session_state
@@ -54,6 +62,24 @@ def render_auth_screen() -> None:
             else:
                 st.error(st.session_state.get("auth_error") or "Correo o contraseña incorrectos.")
 
+        with st.expander("¿Olvidaste tu contraseña?"):
+            with st.form("forgot_password_form"):
+                email_recuperar = st.text_input("Correo electrónico", key="forgot_password_email")
+                enviar_recuperacion = st.form_submit_button("Enviar enlace de recuperación", use_container_width=True)
+
+            if enviar_recuperacion:
+                if not email_recuperar:
+                    st.warning("Escribe tu correo electrónico.")
+                else:
+                    try:
+                        request_password_reset(email_recuperar)
+                        st.success(
+                            "📧 Si ese correo está registrado, te enviamos un enlace para "
+                            "restablecer tu contraseña. Revisa tu bandeja de entrada (y spam)."
+                        )
+                    except Exception as exc:
+                        st.error(f"No se pudo enviar el correo: {exc}")
+
     with tab_signup:
         st.caption("Regístrate aquí si tu entrenador te compartió el enlace de esta plataforma.")
         with st.form("signup_form"):
@@ -71,6 +97,37 @@ def render_auth_screen() -> None:
                 )
             except Exception as exc:
                 st.error(f"No se pudo crear la cuenta: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Pantalla de restablecer contraseña (llega desde el enlace del correo de
+# recuperación). El enlace apunta a la app con ?token_hash=...&type=recovery
+# en vez de sesión iniciada, así que esta pantalla se muestra por encima de
+# cualquier otra cosa, sin importar si hay o no una sesión activa.
+# ---------------------------------------------------------------------------
+def render_reset_password_screen(token_hash: str) -> None:
+    col_izq, col_centro, col_der = st.columns([1, 2, 1])
+    with col_centro:
+        st.image(str(LOGIN_HERO), use_container_width=True)
+    st.subheader("Restablecer contraseña")
+    st.caption("Escribe tu nueva contraseña para continuar.")
+
+    with st.form("reset_password_form"):
+        nueva = st.text_input("Nueva contraseña", type="password")
+        confirmar = st.text_input("Confirmar nueva contraseña", type="password")
+        submitted = st.form_submit_button("Guardar nueva contraseña", use_container_width=True)
+
+    if submitted:
+        if not nueva or len(nueva) < 6:
+            st.error("La contraseña debe tener al menos 6 caracteres.")
+        elif nueva != confirmar:
+            st.error("Las contraseñas no coinciden.")
+        elif complete_password_reset(token_hash, nueva):
+            st.query_params.clear()
+            st.success("✅ Contraseña actualizada. Entrando...")
+            st.rerun()
+        else:
+            st.error(st.session_state.get("auth_error") or "El enlace no es válido o ya expiró. Solicita uno nuevo.")
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +277,10 @@ def render_cliente_shell() -> None:
 # ---------------------------------------------------------------------------
 # Enrutador principal
 # ---------------------------------------------------------------------------
-if not is_authenticated():
+_reset_token_hash = st.query_params.get("token_hash")
+if _reset_token_hash and st.query_params.get("type") == "recovery":
+    render_reset_password_screen(_reset_token_hash)
+elif not is_authenticated():
     render_auth_screen()
 elif current_role() == "admin":
     render_admin_shell()

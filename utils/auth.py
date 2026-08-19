@@ -37,6 +37,46 @@ def login(email: str, password: str) -> bool:
     return True
 
 
+def request_password_reset(email: str) -> None:
+    """Dispara el correo de recuperación de contraseña de Supabase Auth."""
+    supabase = get_supabase_client()
+    supabase.auth.reset_password_for_email(email)
+
+
+def complete_password_reset(token_hash: str, new_password: str) -> bool:
+    """
+    Verifica el token del enlace de recuperación y define la nueva
+    contraseña. `verify_otp` ya deja al usuario autenticado (mismo patrón
+    que un login normal), así que reusamos esa sesión en vez de pedirle
+    que inicie sesión de nuevo con la contraseña que acaba de definir.
+    """
+    supabase = get_supabase_client()
+    st.session_state.pop("auth_error", None)
+
+    try:
+        res = supabase.auth.verify_otp({"token_hash": token_hash, "type": "recovery"})
+    except Exception as exc:
+        st.session_state["auth_error"] = str(exc)
+        return False
+
+    if res.user is None or res.session is None:
+        st.session_state["auth_error"] = "El enlace de recuperación no es válido o ya expiró."
+        return False
+
+    try:
+        supabase.auth.update_user({"password": new_password})
+    except Exception as exc:
+        st.session_state["auth_error"] = str(exc)
+        return False
+
+    _load_perfil(res.user.id)
+    st.session_state["user"] = res.user
+    st.session_state["access_token"] = res.session.access_token
+    st.session_state["refresh_token"] = res.session.refresh_token
+    st.session_state["cliente_id"] = res.user.id
+    return True
+
+
 def signup_cliente(email: str, password: str, nombre_completo: str):
     """
     Autorregistro de un nuevo cliente. El trigger `handle_new_user` del SQL
