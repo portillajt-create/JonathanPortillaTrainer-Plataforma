@@ -93,27 +93,46 @@ CSS = """
 
 # En móvil, seleccionar una opción del menú lateral (streamlit_option_menu)
 # no cierra el sidebar solo — es un comportamiento nativo de Streamlit, no
-# de nuestro código. streamlit_option_menu avisa la selección al frontend
-# principal con un postMessage tipo "streamlit:setComponentValue"; lo
-# escuchamos y, si la pantalla es angosta y el sidebar sigue abierto,
-# simulamos el clic en el botón nativo de colapsar. Un <script> inyectado
-# con st.markdown no se ejecuta (los navegadores lo ignoran si se inserta
-# vía innerHTML), así que usamos st.components.v1.html (un iframe) y desde
-# ahí enganchamos el listener al window.parent real, que es mismo origen.
+# de nuestro código. En vez de depender del mensaje interno que emite el
+# componente al seleccionar una opción (frágil: cambia según la versión de
+# streamlit-option-menu y no se pudo confirmar de forma fiable en
+# producción), observamos directamente el contenedor de contenido principal
+# (stMain): cualquier navegación de página lo muta. Si en ese momento la
+# pantalla es angosta y el sidebar sigue abierto, simulamos el clic en el
+# botón nativo de colapsar. Un <script> inyectado con st.markdown no se
+# ejecuta (los navegadores lo ignoran si se inserta vía innerHTML), así que
+# usamos st.components.v1.html (un iframe) y desde ahí enganchamos todo al
+# window.parent real, que es mismo origen.
 _SIDEBAR_AUTOCOLLAPSE_JS = """
 <script>
 (function () {
     var top = window.parent;
     if (top.__jpAutoCollapseSidebarInit) return;
     top.__jpAutoCollapseSidebarInit = true;
-    top.addEventListener("message", function (e) {
-        if (!e.data || e.data.type !== "streamlit:setComponentValue") return;
+
+    function maybeCollapse() {
         if (top.innerWidth >= 768) return;
         var sidebar = top.document.querySelector('[data-testid="stSidebar"]');
         if (!sidebar || sidebar.getAttribute("aria-expanded") !== "true") return;
         var collapseBtn = top.document.querySelector('[data-testid="stSidebarCollapseButton"] button');
         if (collapseBtn) collapseBtn.click();
-    });
+    }
+
+    function attachObserver() {
+        var main = top.document.querySelector('[data-testid="stMain"]');
+        if (!main) {
+            setTimeout(attachObserver, 500);
+            return;
+        }
+        var lastRun = 0;
+        new top.MutationObserver(function () {
+            var now = Date.now();
+            if (now - lastRun < 200) return;
+            lastRun = now;
+            maybeCollapse();
+        }).observe(main, {childList: true, subtree: true});
+    }
+    attachObserver();
 })();
 </script>
 """
