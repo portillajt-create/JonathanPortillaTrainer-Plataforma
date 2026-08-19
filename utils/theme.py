@@ -1,0 +1,193 @@
+"""
+Identidad visual: CSS que le da a los componentes nativos de Streamlit
+(contenedores con borde, métricas, expanders, botones) el look de tarjeta
+elevada con esquinas redondeadas y sombra que se ve en la guía de marca,
+por encima de lo que el theming nativo de .streamlit/config.toml ya cubre
+(colores base). Se inyecta una sola vez desde app.py.
+"""
+
+CSS = """
+<style>
+/* Contenedores con borde (st.container(border=True)): tarjeta elevada */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 16px !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0));
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+}
+
+/* Encabezado de cada día en Entrenamiento (rutinas.py): franja gris claro
+   para que se note como título de sección dentro de la tarjeta del día.
+   El selector usa [class*=] porque la clave (key=) de cada contenedor
+   incluye el cliente y el día, así que la clase es distinta cada vez. */
+[class*="st-key-cabecera_dia_"] {
+    background: #232326;
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+}
+
+/* Expanders (Gestión de Clientes, Mis Notificaciones): mismo tratamiento */
+[data-testid="stExpander"] {
+    border-radius: 14px !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+}
+[data-testid="stExpander"] summary {
+    border-radius: 14px !important;
+}
+
+/* Métricas (st.metric): tarjeta compacta en vez de texto plano.
+   El valor por defecto de Streamlit es grande y no hace wrap, así que
+   textos largos ("Pérdida de grasa") se cortaban con "...". Achicamos la
+   fuente y permitimos que baje de línea en vez de truncar. */
+[data-testid="stMetric"] {
+    background: #101012;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.3rem !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.25 !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 0.82rem !important;
+}
+
+/* Botones: esquinas redondeadas + leve elevación al pasar el mouse */
+.stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
+    border-radius: 10px !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.stButton > button:hover, .stFormSubmitButton > button:hover, .stDownloadButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    filter: brightness(1.12);
+}
+
+/* Alertas/notificaciones (st.success/info/warning/error): esquinas redondeadas */
+[data-testid="stAlertContainer"] {
+    border-radius: 12px !important;
+}
+
+/* Sidebar: separación sutil del contenido principal + aire alrededor del logo */
+[data-testid="stSidebar"] {
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+[data-testid="stSidebarHeader"] {
+    padding: 20px 18px 6px 18px;
+}
+
+/* Inputs de texto/número/área: esquinas redondeadas consistentes */
+.stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
+    border-radius: 10px !important;
+}
+</style>
+"""
+
+
+def inject() -> None:
+    import streamlit as st
+
+    st.markdown(CSS, unsafe_allow_html=True)
+
+
+def render_perfil_sidebar(nombre: str, rol: str) -> None:
+    """
+    Tarjeta de perfil del sidebar (avatar con iniciales + nombre + badge de
+    rol), en reemplazo de st.success()/st.info() — esas cajas usan el verde/
+    azul semántico de Streamlit sin importar el tema, así que no seguían la
+    paleta negro/gris/blanco pedida.
+    """
+    import html as _html
+
+    import streamlit as st
+
+    nombre_seguro = _html.escape(nombre)
+    iniciales = _html.escape(_iniciales(nombre))
+    es_admin = rol.strip().lower().startswith("admin")
+    badge_bg = "#FFFFFF" if es_admin else "#2A2A2E"
+    badge_color = "#0B0B0C" if es_admin else "#E6E6E6"
+    etiqueta = "ADMINISTRADOR" if es_admin else "ASESORADO"
+
+    st.markdown(
+        f"""
+        <div style="display:flex;align-items:center;gap:12px;
+            background:#141416;border:1px solid rgba(255,255,255,0.08);
+            border-radius:14px;padding:14px 16px;margin-bottom:16px;
+            box-shadow:0 8px 20px rgba(0,0,0,0.35);">
+          <div style="width:42px;height:42px;min-width:42px;border-radius:50%;
+              background:#232326;border:1px solid rgba(255,255,255,0.12);
+              display:flex;align-items:center;justify-content:center;
+              font-size:15px;font-weight:700;color:#FFFFFF;">{iniciales}</div>
+          <div style="min-width:0;">
+            <div style="color:#FFFFFF;font-weight:600;font-size:14.5px;
+                line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{nombre_seguro}</div>
+            <span style="display:inline-block;margin-top:5px;padding:2px 10px;
+                border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+                background:{badge_bg};color:{badge_color};">{etiqueta}</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _iniciales(nombre: str) -> str:
+    partes = nombre.strip().split()
+    if not partes:
+        return "?"
+    if len(partes) == 1:
+        return partes[0][0].upper()
+    return (partes[0][0] + partes[-1][0]).upper()
+
+
+# Colores para gráficas Plotly sobre el fondo negro de la app. Plotly no
+# hereda el theming de Streamlit, así que sin esto usa su gris oscuro por
+# defecto para textos/ejes — prácticamente invisible sobre negro.
+PLOTLY_FONT_COLOR = "#F2F2F2"
+PLOTLY_GRID_COLOR = "rgba(255,255,255,0.10)"
+
+
+def estilizar_grafico(fig):
+    """Aplica fondo transparente + texto/ejes/leyenda/hover legibles en tema oscuro."""
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=PLOTLY_FONT_COLOR),
+        legend=dict(font=dict(color=PLOTLY_FONT_COLOR)),
+        hoverlabel=dict(bgcolor="#1A1A1C", font_color="#FFFFFF", bordercolor="rgba(255,255,255,0.15)"),
+    )
+    fig.update_xaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
+    fig.update_yaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
+    return fig
+
+
+# Estilos para streamlit_option_menu (menú lateral con iconos): pastillas
+# redondeadas sobre el fondo negro, resaltando la opción activa con un gris
+# más claro en vez de invertir a blanco (así el icono se mantiene legible
+# tanto en estado normal como seleccionado).
+MENU_STYLES = {
+    "container": {"padding": "0!important", "background-color": "transparent"},
+    "icon": {"color": "#CFCFCF", "font-size": "16px"},
+    "nav-link": {
+        "font-size": "14px",
+        "text-align": "left",
+        "margin": "3px 0",
+        "padding": "10px 14px",
+        "border-radius": "10px",
+        "color": "#D6D6D6",
+        "background-color": "#131315",
+        "--hover-color": "#1c1c1f",
+    },
+    "nav-link-selected": {
+        "background-color": "#232326",
+        "color": "#FFFFFF",
+        "font-weight": "600",
+    },
+}

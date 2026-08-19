@@ -1,0 +1,228 @@
+"""
+Jonathan Portilla Trainer — Dashboard de Asesorías de Entrenamiento y Nutrición.
+
+Punto de entrada de la app. Responsabilidades de este archivo:
+  1. Pantalla de login / registro de clientes.
+  2. Cargar el rol del usuario autenticado (admin vs. cliente).
+  3. Enrutar hacia el "shell" de navegación correspondiente.
+  4. (Desde el Paso 2) Selector real de cliente para las páginas de admin,
+     y bloqueo de acceso si la suscripción del cliente está inactiva/vencida.
+
+Los módulos de negocio (clientes, onboarding, nutrición, rutinas, Hevy,
+check-in) viven en modules/ y se van implementando en los Pasos 2 a 6;
+los que aún no se han construido quedan conectados como stubs para que la
+navegación funcione desde ya.
+"""
+
+import streamlit as st
+from streamlit_option_menu import option_menu
+
+from modules import admin_clientes, checkin, hevy_integration, nutricion, onboarding, rutinas
+from utils import theme
+from utils.auth import current_role, is_authenticated, login, logout, signup_cliente
+from utils.branding import FAVICON, ICON, LOGIN_HERO, LOGO_FULL, NOMBRE
+from utils.queries import get_onboarding, get_suscripcion_vista, list_clientes
+from utils.session import init_session_state
+
+st.set_page_config(page_title="Jonathan Portilla Trainer", page_icon=str(FAVICON), layout="wide")
+st.logo(str(LOGO_FULL), icon_image=str(ICON))
+theme.inject()
+
+init_session_state()
+
+
+# ---------------------------------------------------------------------------
+# Pantalla de autenticación
+# ---------------------------------------------------------------------------
+def render_auth_screen() -> None:
+    col_izq, col_centro, col_der = st.columns([1, 2, 1])
+    with col_centro:
+        st.image(str(LOGIN_HERO), use_container_width=True)
+    st.caption("<p style='text-align:center'>Plataforma de asesorías de entrenamiento y nutrición</p>", unsafe_allow_html=True)
+
+    tab_login, tab_signup = st.tabs(["Iniciar sesión", "Crear cuenta (clientes)"])
+
+    with tab_login:
+        with st.form("login_form"):
+            email = st.text_input("Correo electrónico")
+            password = st.text_input("Contraseña", type="password")
+            submitted = st.form_submit_button("Iniciar sesión", use_container_width=True)
+
+        if submitted:
+            if login(email, password):
+                st.rerun()
+            else:
+                st.error(st.session_state.get("auth_error") or "Correo o contraseña incorrectos.")
+
+    with tab_signup:
+        st.caption("Regístrate aquí si tu entrenador te compartió el enlace de esta plataforma.")
+        with st.form("signup_form"):
+            nombre = st.text_input("Nombre completo")
+            email_signup = st.text_input("Correo electrónico", key="signup_email")
+            password_signup = st.text_input("Contraseña", type="password", key="signup_password")
+            submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True)
+
+        if submitted_signup:
+            try:
+                signup_cliente(email_signup, password_signup, nombre)
+                st.success(
+                    "Cuenta creada. Revisa tu correo si se requiere confirmación, "
+                    "luego inicia sesión desde la pestaña 'Iniciar sesión'."
+                )
+            except Exception as exc:
+                st.error(f"No se pudo crear la cuenta: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Encabezado (icono) y pie de página (nombre) — se repiten en cada sección
+# ---------------------------------------------------------------------------
+def _render_titulo(pagina: str) -> None:
+    st.image(str(ICON), width=64)
+    st.title(pagina)
+
+
+def _render_pie_pagina() -> None:
+    st.divider()
+    col_izq, col_centro, col_der = st.columns([1, 2, 1])
+    with col_centro:
+        st.image(str(NOMBRE), width=280)
+
+
+# ---------------------------------------------------------------------------
+# Selector de cliente reutilizable en las páginas de admin
+# ---------------------------------------------------------------------------
+def _selector_cliente(key: str) -> str | None:
+    clientes = list_clientes()
+    if not clientes:
+        st.info("Todavía no hay clientes registrados.")
+        return None
+
+    opciones = {f"{c['nombre_completo'] or c['email']} — {c['email']}": c["id"] for c in clientes}
+    with st.container(border=True):
+        st.markdown("###### 👤 Cliente seleccionado")
+        seleccion = st.selectbox("Cliente", list(opciones.keys()), key=key, label_visibility="collapsed")
+    return opciones[seleccion]
+
+
+# ---------------------------------------------------------------------------
+# Shell de navegación — Entrenador / Admin
+# ---------------------------------------------------------------------------
+ADMIN_PAGINAS = ["Gestión de Clientes", "Ficha del Atleta", "Nutrición y Macros", "Entrenamiento", "Progreso"]
+ADMIN_ICONOS = ["people-fill", "clipboard2-pulse", "egg-fried", "lightning-charge-fill", "graph-up-arrow"]
+
+
+def render_admin_shell() -> None:
+    nombre = st.session_state.get("nombre_completo") or "Entrenador"
+
+    with st.sidebar:
+        theme.render_perfil_sidebar(nombre, "Administrador")
+        pagina = option_menu(
+            menu_title=None,
+            options=ADMIN_PAGINAS,
+            icons=ADMIN_ICONOS,
+            default_index=0,
+            styles=theme.MENU_STYLES,
+            key="admin_nav",
+        )
+        if st.button("Cerrar sesión", use_container_width=True):
+            logout()
+            st.rerun()
+
+    _render_titulo(pagina)
+
+    if pagina == "Gestión de Clientes":
+        admin_clientes.render()
+    elif pagina == "Ficha del Atleta":
+        cliente_id = _selector_cliente(key="selector_ficha")
+        if cliente_id:
+            onboarding.render_ficha_admin(cliente_id)
+    elif pagina == "Nutrición y Macros":
+        nutricion.render_alertas_nutricion()
+        st.divider()
+        cliente_id = _selector_cliente(key="selector_nutricion")
+        if cliente_id:
+            nutricion.render_admin(cliente_id)
+    elif pagina == "Entrenamiento":
+        rutinas.render_alertas_entrenamiento()
+        st.divider()
+        cliente_id = _selector_cliente(key="selector_rutinas")
+        if cliente_id:
+            rutinas.render_admin(cliente_id)
+    elif pagina == "Progreso":
+        cliente_id = _selector_cliente(key="selector_progreso")
+        if cliente_id:
+            hevy_integration.render_progreso(cliente_id)
+
+    _render_pie_pagina()
+
+
+# ---------------------------------------------------------------------------
+# Shell de navegación — Cliente
+# ---------------------------------------------------------------------------
+CLIENTE_PAGINAS = ["Mis Notificaciones", "Mi Perfil", "Mi Dieta", "Mi Entrenamiento", "Mi Progreso", "Check-in Semanal"]
+CLIENTE_ICONOS = ["bell-fill", "person-badge", "egg-fried", "lightning-charge-fill", "graph-up-arrow", "calendar2-check"]
+
+
+def render_cliente_shell() -> None:
+    nombre = st.session_state.get("nombre_completo") or "Cliente"
+    cliente_id = st.session_state.get("cliente_id")
+
+    suscripcion = get_suscripcion_vista(cliente_id) if cliente_id else None
+    if suscripcion and (suscripcion.get("estado") == "Inactivo" or suscripcion.get("vencida")):
+        with st.sidebar:
+            theme.render_perfil_sidebar(nombre, "Cliente")
+            if st.button("Cerrar sesión", use_container_width=True):
+                logout()
+                st.rerun()
+        _render_titulo("Plan no activo")
+        st.error(
+            "🚫 Tu plan de asesoría no está activo actualmente.\n\n"
+            "Contacta a tu entrenador para renovar tu suscripción y recuperar el acceso "
+            "completo al panel (dieta, rutina, progreso y check-ins)."
+        )
+        _render_pie_pagina()
+        return
+
+    with st.sidebar:
+        theme.render_perfil_sidebar(nombre, "Cliente")
+        onboarding_completo = bool(get_onboarding(cliente_id)) if cliente_id else True
+        indice_inicial = CLIENTE_PAGINAS.index("Mis Notificaciones" if onboarding_completo else "Mi Perfil")
+        pagina = option_menu(
+            menu_title=None,
+            options=CLIENTE_PAGINAS,
+            icons=CLIENTE_ICONOS,
+            default_index=indice_inicial,
+            styles=theme.MENU_STYLES,
+            key="cliente_nav",
+        )
+        if st.button("Cerrar sesión", use_container_width=True):
+            logout()
+            st.rerun()
+
+    _render_titulo(pagina)
+
+    if pagina == "Mi Perfil":
+        onboarding.render_formulario_cliente(cliente_id)
+    elif pagina == "Mi Dieta":
+        nutricion.render_cliente(cliente_id)
+    elif pagina == "Mi Entrenamiento":
+        rutinas.render_cliente(cliente_id)
+    elif pagina == "Mi Progreso":
+        hevy_integration.render_progreso(cliente_id)
+    elif pagina == "Check-in Semanal":
+        checkin.render_checkin_cliente(cliente_id)
+    elif pagina == "Mis Notificaciones":
+        checkin.render_notificaciones_cliente(cliente_id)
+
+    _render_pie_pagina()
+
+
+# ---------------------------------------------------------------------------
+# Enrutador principal
+# ---------------------------------------------------------------------------
+if not is_authenticated():
+    render_auth_screen()
+elif current_role() == "admin":
+    render_admin_shell()
+else:
+    render_cliente_shell()

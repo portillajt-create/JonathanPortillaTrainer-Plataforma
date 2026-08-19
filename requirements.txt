@@ -1,0 +1,15 @@
+# Paso 1 (obligatorias desde ya)
+streamlit>=1.38
+supabase>=2.7.0
+python-dotenv>=1.0.1
+
+# Identidad visual: menú lateral con iconos
+streamlit-option-menu>=0.3.13
+
+# Se usarán a partir del Paso 3 (macros/dietas) y Paso 5/8 (gráficas de progreso)
+pandas>=2.2.0
+plotly>=5.22.0
+
+# Se usará en el Paso 5 para el scraping del perfil público de Hevy
+requests>=2.32.0
+beautifulsoup4>=4.12.3

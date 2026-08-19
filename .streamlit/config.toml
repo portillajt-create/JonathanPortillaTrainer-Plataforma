@@ -1,0 +1,9 @@
+# Tema visual de la app: paleta negro / gris / blanco, a juego con el
+# logo de Jonathan Portilla Trainer (arte en blanco sobre negro).
+[theme]
+base = "dark"
+primaryColor = "#FFFFFF"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#161616"
+textColor = "#F2F2F2"
+font = "sans serif"
