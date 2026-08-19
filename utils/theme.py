@@ -91,10 +91,40 @@ CSS = """
 """
 
 
+# En móvil, seleccionar una opción del menú lateral (streamlit_option_menu)
+# no cierra el sidebar solo — es un comportamiento nativo de Streamlit, no
+# de nuestro código. streamlit_option_menu avisa la selección al frontend
+# principal con un postMessage tipo "streamlit:setComponentValue"; lo
+# escuchamos y, si la pantalla es angosta y el sidebar sigue abierto,
+# simulamos el clic en el botón nativo de colapsar. Un <script> inyectado
+# con st.markdown no se ejecuta (los navegadores lo ignoran si se inserta
+# vía innerHTML), así que usamos st.components.v1.html (un iframe) y desde
+# ahí enganchamos el listener al window.parent real, que es mismo origen.
+_SIDEBAR_AUTOCOLLAPSE_JS = """
+<script>
+(function () {
+    var top = window.parent;
+    if (top.__jpAutoCollapseSidebarInit) return;
+    top.__jpAutoCollapseSidebarInit = true;
+    top.addEventListener("message", function (e) {
+        if (!e.data || e.data.type !== "streamlit:setComponentValue") return;
+        if (top.innerWidth >= 768) return;
+        var sidebar = top.document.querySelector('[data-testid="stSidebar"]');
+        if (!sidebar || sidebar.getAttribute("aria-expanded") !== "true") return;
+        var collapseBtn = top.document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+        if (collapseBtn) collapseBtn.click();
+    });
+})();
+</script>
+"""
+
+
 def inject() -> None:
     import streamlit as st
+    import streamlit.components.v1 as components
 
     st.markdown(CSS, unsafe_allow_html=True)
+    components.html(_SIDEBAR_AUTOCOLLAPSE_JS, height=0)
 
 
 def render_perfil_sidebar(nombre: str, rol: str) -> None:
