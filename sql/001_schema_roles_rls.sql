@@ -192,7 +192,8 @@ create table if not exists public.notificaciones (
     cliente_id      uuid not null references public.clientes (id) on delete cascade,
     tipo            text not null check (tipo in
                         ('dieta_actualizada', 'rutina_actualizada', 'alerta_vencimiento',
-                         'alerta_deload', 'alerta_estancamiento', 'alerta_adherencia_dieta', 'general')),
+                         'alerta_deload', 'alerta_estancamiento', 'alerta_adherencia_dieta',
+                         'checkin_faltante', 'general')),
     titulo          text not null,
     mensaje         text not null,
     leida           boolean not null default false,

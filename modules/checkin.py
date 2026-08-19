@@ -19,7 +19,9 @@ aquí]).
     para notificar. Se embebe en "Nutrición y Macros" [nutricion.py, vía
     render_alertas_nutricion].
   - render_notificaciones_cliente: centro de notificaciones in-app del
-    cliente, con marcado de leídas.
+    cliente, con marcado de leídas. También dispara (de forma perezosa,
+    al entrar) la notificación de check-in semanal faltante si la semana
+    pasada terminó sin registro.
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ from utils.notificaciones import crear_notificacion
 from utils.queries import (
     descartar_alerta,
     get_checkin_semana,
+    get_cliente,
     list_alertas_descartadas,
     list_checkins,
     list_clientes_con_suscripcion,
@@ -200,6 +203,45 @@ def render_alertas_adherencia_dieta() -> None:
                 st.rerun()
 
 
+def _generar_notificacion_checkin_faltante(cliente_id: str) -> None:
+    """
+    Si la semana pasada (lunes a domingo, ya cerrada) terminó sin check-in,
+    crea la notificación una sola vez por semana faltante. Se llama al
+    entrar a "Mis Notificaciones" en vez de con un cron, porque la app no
+    tiene un proceso en segundo plano — se evalúa de forma perezosa en
+    cada visita, con guardas para no duplicar ni avisar antes de tiempo.
+    """
+    semana_actual = _inicio_semana_actual()
+    semana_pasada = semana_actual - timedelta(days=7)
+
+    cliente = get_cliente(cliente_id)
+    fecha_creacion_str = (cliente.get("created_at") if cliente else None) or ""
+    if fecha_creacion_str and date.fromisoformat(fecha_creacion_str[:10]) > semana_pasada:
+        return  # el cliente todavía no existía en esa semana
+
+    if get_checkin_semana(cliente_id, semana_pasada):
+        return  # sí lo llenó
+
+    ya_avisado = any(
+        n["tipo"] == "checkin_faltante" and (n.get("created_at") or "") >= semana_actual.isoformat()
+        for n in list_notificaciones(cliente_id)
+    )
+    if ya_avisado:
+        return
+
+    crear_notificacion(
+        cliente_id,
+        tipo="checkin_faltante",
+        titulo="Check-in semanal pendiente",
+        mensaje=(
+            f"No registraste tu check-in de la semana del {semana_pasada.isoformat()} al "
+            f"{(semana_pasada + timedelta(days=6)).isoformat()}. Complétalo en 'Check-in Semanal' "
+            "para que tu entrenador pueda dar seguimiento a tu progreso."
+        ),
+        creado_por=None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Centro de notificaciones (cliente)
 # ---------------------------------------------------------------------------
@@ -210,6 +252,7 @@ def render_notificaciones_cliente(cliente_id: str) -> None:
         st.warning("No se encontró tu identificador de cliente.")
         return
 
+    _generar_notificacion_checkin_faltante(cliente_id)
     notificaciones = list_notificaciones(cliente_id)
     if not notificaciones:
         st.info("No tienes notificaciones todavía.")
@@ -244,5 +287,6 @@ def _icono_tipo(tipo: str) -> str:
         "alerta_deload": "😮‍💨",
         "alerta_estancamiento": "📉",
         "alerta_adherencia_dieta": "🍽️",
+        "checkin_faltante": "📅",
         "general": "🔔",
     }.get(tipo, "🔔")
