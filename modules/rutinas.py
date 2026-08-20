@@ -19,6 +19,7 @@ Módulo de Entrenamiento (Rutinas) — Paso 4.
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any
 
@@ -46,9 +47,6 @@ def render_alertas_entrenamiento() -> None:
 
 def render_admin(cliente_id: str) -> None:
     st.subheader("Rutina del cliente")
-
-    if st.session_state.pop(f"rutina_guardada_{cliente_id}", False):
-        st.success("✅ Rutina actualizada y asesorado notificado.")
 
     rutina_actual = get_rutina_activa(cliente_id)
     if rutina_actual:
@@ -180,6 +178,11 @@ def render_admin(cliente_id: str) -> None:
             del st.session_state[bloques_key]
             st.session_state[f"rutina_guardada_{cliente_id}"] = True
             st.rerun()
+
+    if st.session_state.pop(f"rutina_guardada_{cliente_id}", False):
+        st.success("✅ Rutina actualizada y asesorado notificado.")
+        time.sleep(5)
+        st.rerun()
 
 
 def render_cliente(cliente_id: str) -> None:

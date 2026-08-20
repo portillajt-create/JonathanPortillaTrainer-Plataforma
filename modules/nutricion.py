@@ -16,6 +16,7 @@ Módulo de Nutrición e Interactivo de Macros — Paso 3.
 
 from __future__ import annotations
 
+import time
 from datetime import date
 
 import plotly.graph_objects as go
@@ -51,9 +52,6 @@ def render_alertas_nutricion() -> None:
 
 def render_admin(cliente_id: str) -> None:
     st.subheader("Nutrición y Calculadora de Macros")
-
-    if st.session_state.pop(f"dieta_guardada_{cliente_id}", False):
-        st.success("✅ Plan nutricional actualizado y asesorado notificado.")
 
     dieta_actual = get_dieta_activa(cliente_id)
     if dieta_actual:
@@ -183,6 +181,11 @@ def render_admin(cliente_id: str) -> None:
         del st.session_state[plan_key]
         del st.session_state[notas_key]
         st.session_state[f"dieta_guardada_{cliente_id}"] = True
+        st.rerun()
+
+    if st.session_state.pop(f"dieta_guardada_{cliente_id}", False):
+        st.success("✅ Plan nutricional actualizado y asesorado notificado.")
+        time.sleep(5)
         st.rerun()
 
 
