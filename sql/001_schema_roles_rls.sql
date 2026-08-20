@@ -133,6 +133,11 @@ create table if not exists public.dietas (
                                 ('Flexible', 'Ciclado de carbohidratos', 'Definición', 'Volumen', 'Mantenimiento')),
     plan_comidas            text,       -- menú de ejemplo (editable) generado a partir de los macros
     notas                   text,       -- notas adicionales libres del entrenador, aparte del menú
+    sexo                    text check (sexo in ('Hombre', 'Mujer')),
+    nivel_actividad         text,       -- clave de FACTORES_ACTIVIDAD en nutricion.py
+    ajuste_pct              numeric,    -- % de ajuste sobre el TDEE usado
+    proteina_g_kg           numeric,    -- g de proteína por kg de peso usado
+    grasa_pct               numeric,    -- % de calorías de grasa usado
     activa                  boolean not null default true,
     actualizado_por         uuid references public.clientes (id) on delete set null,
     fecha_actualizacion     timestamptz not null default now()

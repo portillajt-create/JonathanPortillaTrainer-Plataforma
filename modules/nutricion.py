@@ -79,9 +79,12 @@ def render_admin(cliente_id: str) -> None:
         edad_actual = _calcular_edad(onboarding_cliente.get("fecha_nacimiento")) or 30
         edad = st.number_input("Edad", min_value=14, max_value=90, step=1, value=edad_actual)
     with col4:
-        sexo = st.selectbox("Sexo", ["Hombre", "Mujer"])
+        sexo_actual = dieta_actual.get("sexo") if dieta_actual and dieta_actual.get("sexo") in ("Hombre", "Mujer") else "Hombre"
+        sexo = st.selectbox("Sexo", ["Hombre", "Mujer"], index=["Hombre", "Mujer"].index(sexo_actual))
 
-    nivel_actividad = st.selectbox("Nivel de actividad", list(FACTORES_ACTIVIDAD.keys()), index=2)
+    niveles = list(FACTORES_ACTIVIDAD.keys())
+    nivel_actual = dieta_actual.get("nivel_actividad") if dieta_actual and dieta_actual.get("nivel_actividad") in niveles else niveles[2]
+    nivel_actividad = st.selectbox("Nivel de actividad", niveles, index=niveles.index(nivel_actual))
 
     tmb = _calcular_tmb(peso_kg, altura_cm, edad, sexo)
     tdee = tmb * FACTORES_ACTIVIDAD[nivel_actividad]
@@ -91,19 +94,22 @@ def render_admin(cliente_id: str) -> None:
     col_tdee.metric("TDEE (gasto total estimado)", f"{tdee:.0f} kcal/día")
 
     st.markdown("##### 2. Objetivo calórico")
+    ajuste_actual = int(dieta_actual["ajuste_pct"]) if dieta_actual and dieta_actual.get("ajuste_pct") is not None else 0
     ajuste_pct = st.slider(
-        "Ajuste sobre el TDEE (%)", min_value=-30, max_value=30, value=0, step=5,
+        "Ajuste sobre el TDEE (%)", min_value=-30, max_value=30, value=ajuste_actual, step=5,
         help="Negativo = déficit (perder grasa) · 0 = mantenimiento · Positivo = superávit (ganar masa)",
     )
     calorias_objetivo = tdee * (1 + ajuste_pct / 100)
     st.metric("Calorías objetivo", f"{calorias_objetivo:.0f} kcal/día")
 
     st.markdown("##### 3. Calculadora interactiva de macros")
+    proteina_actual = float(dieta_actual["proteina_g_kg"]) if dieta_actual and dieta_actual.get("proteina_g_kg") is not None else 2.0
+    grasa_actual = int(dieta_actual["grasa_pct"]) if dieta_actual and dieta_actual.get("grasa_pct") is not None else 25
     col5, col6 = st.columns(2)
     with col5:
-        proteina_g_kg = st.slider("Proteína (g por kg de peso corporal)", 1.2, 3.0, 2.0, 0.1)
+        proteina_g_kg = st.slider("Proteína (g por kg de peso corporal)", 1.2, 3.0, proteina_actual, 0.1)
     with col6:
-        grasa_pct = st.slider("Grasas (% de las calorías objetivo)", 15, 40, 25, 5)
+        grasa_pct = st.slider("Grasas (% de las calorías objetivo)", 15, 40, grasa_actual, 5)
 
     proteinas_g = peso_kg * proteina_g_kg
     proteina_kcal = proteinas_g * 4
@@ -166,6 +172,11 @@ def render_admin(cliente_id: str) -> None:
             tipo_dieta=tipo_dieta,
             plan_comidas=plan_comidas,
             notas=notas,
+            sexo=sexo,
+            nivel_actividad=nivel_actividad,
+            ajuste_pct=ajuste_pct,
+            proteina_g_kg=round(proteina_g_kg, 2),
+            grasa_pct=grasa_pct,
         )
         crear_notificacion(
             cliente_id,
