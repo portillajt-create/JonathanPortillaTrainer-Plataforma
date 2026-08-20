@@ -70,6 +70,15 @@ CSS = """
     filter: brightness(1.12);
 }
 
+/* Botones type="primary": con primaryColor blanco (paleta de marca) el
+   fondo del botón queda blanco, pero el texto por defecto también se
+   queda blanco — invisible. Forzamos texto negro solo en estos botones. */
+.stButton > button[kind="primary"],
+.stFormSubmitButton > button[kind="primary"],
+.stDownloadButton > button[kind="primary"] {
+    color: #0B0B0C !important;
+}
+
 /* Alertas/notificaciones (st.success/info/warning/error): esquinas redondeadas */
 [data-testid="stAlertContainer"] {
     border-radius: 12px !important;

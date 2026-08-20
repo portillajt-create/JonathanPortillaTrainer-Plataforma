@@ -52,6 +52,9 @@ def render_alertas_nutricion() -> None:
 def render_admin(cliente_id: str) -> None:
     st.subheader("Nutrición y Calculadora de Macros")
 
+    if st.session_state.pop(f"dieta_guardada_{cliente_id}", False):
+        st.success("✅ Plan nutricional actualizado y asesorado notificado.")
+
     dieta_actual = get_dieta_activa(cliente_id)
     if dieta_actual:
         st.caption(
@@ -179,7 +182,7 @@ def render_admin(cliente_id: str) -> None:
         )
         del st.session_state[plan_key]
         del st.session_state[notas_key]
-        st.success("Plan nutricional guardado y cliente notificado.")
+        st.session_state[f"dieta_guardada_{cliente_id}"] = True
         st.rerun()
 
 

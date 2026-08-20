@@ -47,6 +47,9 @@ def render_alertas_entrenamiento() -> None:
 def render_admin(cliente_id: str) -> None:
     st.subheader("Rutina del cliente")
 
+    if st.session_state.pop(f"rutina_guardada_{cliente_id}", False):
+        st.success("✅ Rutina actualizada y asesorado notificado.")
+
     rutina_actual = get_rutina_activa(cliente_id)
     if rutina_actual:
         st.caption(
@@ -175,7 +178,7 @@ def render_admin(cliente_id: str) -> None:
             for dia in DIAS:
                 st.session_state.pop(f"rutina_etiqueta_{cliente_id}_{dia}", None)
             del st.session_state[bloques_key]
-            st.success("Rutina guardada y cliente notificado.")
+            st.session_state[f"rutina_guardada_{cliente_id}"] = True
             st.rerun()
 
 
