@@ -301,6 +301,9 @@ def render_cliente(cliente_id: str) -> None:
                 if ejercicio.get("notas"):
                     st.caption(f"📝 {ejercicio['notas']}")
 
+    st.divider()
+    _render_resumen_volumen(bloques)
+
 
 def _formatear_minutos(minutos: float | None) -> str:
     valor = minutos or 0
