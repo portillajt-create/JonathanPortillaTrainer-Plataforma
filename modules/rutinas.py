@@ -274,8 +274,6 @@ def render_cliente(cliente_id: str) -> None:
         st.info("Esta rutina todavía no tiene ejercicios cargados.")
         return
 
-    _render_resumen_volumen(bloques)
-
     por_dia: dict[str, list[dict[str, Any]]] = {}
     for bloque in bloques:
         por_dia.setdefault(bloque.get("dia") or "Sin día asignado", []).append(bloque)
