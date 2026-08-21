@@ -171,11 +171,11 @@ def render_admin(cliente_id: str) -> None:
 
                 bloque["notas"] = st.text_input("Notas técnicas", value=bloque.get("notas") or "", key=f"notas_{bid}")
 
-    _render_resumen_volumen(bloques)
-
     if st.button("➕ Agregar ejercicio"):
         st.session_state[bloques_key].append({**BLOQUE_DEFAULT, "_id": str(uuid.uuid4())})
         st.rerun()
+
+    _render_resumen_volumen(bloques)
 
     st.divider()
 
