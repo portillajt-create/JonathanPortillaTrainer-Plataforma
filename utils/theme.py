@@ -16,18 +16,7 @@ CSS = """
     box-shadow: 0 10px 28px rgba(0,0,0,0.45);
 }
 
-/* Encabezado de cada día en Entrenamiento (rutinas.py): franja gris claro
-   para que se note como título de sección dentro de la tarjeta del día.
-   El selector usa [class*=] porque la clave (key=) de cada contenedor
-   incluye el cliente y el día, así que la clase es distinta cada vez. */
-[class*="st-key-cabecera_dia_"] {
-    background: #232326;
-    border-radius: 12px;
-    padding: 10px 16px;
-    margin-bottom: 14px;
-}
-
-/* Expanders (Gestión de Clientes, Mis Notificaciones): mismo tratamiento */
+/* Expanders (Gestión de Clientes, Mis Notificaciones, días de Entrenamiento): mismo tratamiento */
 [data-testid="stExpander"] {
     border-radius: 14px !important;
     border: 1px solid rgba(255,255,255,0.09) !important;

@@ -7,14 +7,18 @@ Módulo de Entrenamiento (Rutinas) — Paso 4.
     depender de qué cliente esté seleccionado — mismo patrón que los
     vencimientos en Gestión de Clientes.
   - render_admin: constructor flexible de bloques de entrenamiento
-    (día, ejercicio, series, repeticiones, RPE/RIR, descanso, notas
-    técnicas) para el cliente seleccionado. Los bloques se guardan como
-    JSON en "rutinas.bloques" — no hay un número fijo de ejercicios, el
-    admin agrega/quita los que necesite. Botón "Guardar y Notificar al
-    Cliente" desactiva la rutina anterior, guarda la nueva como activa y
-    dispara la notificación.
+    (día, ejercicio, músculo priorizado, series, repeticiones, RPE/RIR,
+    descanso, notas técnicas) para el cliente seleccionado. Los bloques
+    se guardan como JSON en "rutinas.bloques" — no hay un número fijo de
+    ejercicios, el admin agrega/quita los que necesite. Cada día vive en
+    un st.expander colapsable. Botón "Guardar y Notificar al Cliente"
+    desactiva la rutina anterior, guarda la nueva como activa y dispara
+    la notificación.
+  - _render_resumen_volumen: gráfico de barras con las series totales
+    por músculo de toda la rutina; se usa tanto en render_admin (en vivo
+    mientras se edita) como en render_cliente.
   - render_cliente: vista de solo lectura de la rutina vigente, agrupada
-    por día.
+    por día en expanders (el primer día abierto, el resto colapsado).
 """
 
 from __future__ import annotations
@@ -23,10 +27,11 @@ import time
 import uuid
 from typing import Any
 
-import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from modules import checkin
+from utils import theme
 from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
 from utils.queries import get_rutina_activa, guardar_rutina
@@ -37,6 +42,26 @@ MUSCULOS = [
     "Pectoral", "Espalda", "Cuádriceps", "Isquios", "Hombros", "Glúteo", "Bíceps",
     "Tríceps", "Trapecio", "Aductores", "Abductores", "Pantorrillas", "Antebrazos", "Abdomen",
 ]
+
+# (color de st.badge, color hex para el gráfico) — agrupados por función
+# muscular (empuje en rojo/naranja, tirón en azul, piernas en verde) para
+# que la paleta se sienta coherente en vez de arbitraria.
+MUSCULO_COLOR: dict[str, tuple[str, str]] = {
+    "Pectoral": ("red", "#FF6B6B"),
+    "Hombros": ("orange", "#FFA94D"),
+    "Tríceps": ("orange", "#FFA94D"),
+    "Espalda": ("blue", "#4C9AFF"),
+    "Bíceps": ("blue", "#4C9AFF"),
+    "Trapecio": ("blue", "#4C9AFF"),
+    "Cuádriceps": ("green", "#36B37E"),
+    "Isquios": ("green", "#36B37E"),
+    "Glúteo": ("green", "#36B37E"),
+    "Aductores": ("green", "#36B37E"),
+    "Abductores": ("green", "#36B37E"),
+    "Pantorrillas": ("gray", "#ADB5BD"),
+    "Antebrazos": ("gray", "#ADB5BD"),
+    "Abdomen": ("violet", "#9775FA"),
+}
 
 BLOQUE_DEFAULT = {
     "dia": DIAS[0], "ejercicio": "", "musculo": MUSCULOS[0], "series": 3,
@@ -100,15 +125,10 @@ def render_admin(cliente_id: str) -> None:
         if etiqueta_key not in st.session_state:
             st.session_state[etiqueta_key] = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
 
-        with st.container(border=True):
-            with st.container(key=f"cabecera_dia_{cliente_id}_{dia}"):
-                col_dia, col_etiqueta = st.columns([1, 2])
-                with col_dia:
-                    st.markdown(f"### {dia}")
-                with col_etiqueta:
-                    st.text_input(
-                        "Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps"
-                    )
+        etiqueta_actual = st.session_state.get(etiqueta_key, "")
+        titulo_expander = f"🏋️ {dia}: {etiqueta_actual}" if etiqueta_actual else f"🏋️ {dia}"
+        with st.expander(titulo_expander, expanded=True):
+            st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
             for i, bloque in enumerate(por_dia[dia]):
                 bid = bloque["_id"]
@@ -202,7 +222,7 @@ def render_admin(cliente_id: str) -> None:
 
 
 def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
-    """Series totales por músculo en toda la rutina (suma de todos los días)."""
+    """Gráfico de barras con las series totales por músculo en toda la rutina."""
     conteo = {musculo: 0 for musculo in MUSCULOS}
     for bloque in bloques:
         if not (bloque.get("ejercicio") or "").strip():
@@ -211,13 +231,29 @@ def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
         if musculo:
             conteo[musculo] += int(bloque.get("series") or 0)
 
-    filas = [{"Músculo": musculo, "Series totales": series} for musculo, series in conteo.items() if series > 0]
+    filas = sorted(((m, s) for m, s in conteo.items() if s > 0), key=lambda f: f[1])
     if not filas:
         return
 
+    musculos_orden = [f[0] for f in filas]
+    series_orden = [f[1] for f in filas]
+    colores = [MUSCULO_COLOR.get(m, ("gray", "#ADB5BD"))[1] for m in musculos_orden]
+
     st.markdown("##### 📊 Volumen total por músculo (series de toda la rutina)")
-    tabla = pd.DataFrame(filas).sort_values("Series totales", ascending=False).reset_index(drop=True)
-    st.dataframe(tabla, use_container_width=True, hide_index=True)
+    fig = go.Figure(
+        go.Bar(
+            x=series_orden,
+            y=musculos_orden,
+            orientation="h",
+            marker=dict(color=colores),
+            text=series_orden,
+            textposition="outside",
+            hovertemplate="%{y}: %{x} series<extra></extra>",
+        )
+    )
+    fig.update_layout(showlegend=False, margin=dict(t=10, b=10, l=10, r=30), height=max(220, 36 * len(filas)))
+    fig.update_xaxes(showgrid=False, zeroline=False)
+    st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
 
 
 def render_cliente(cliente_id: str) -> None:
@@ -238,20 +274,25 @@ def render_cliente(cliente_id: str) -> None:
         st.info("Esta rutina todavía no tiene ejercicios cargados.")
         return
 
+    _render_resumen_volumen(bloques)
+
     por_dia: dict[str, list[dict[str, Any]]] = {}
     for bloque in bloques:
         por_dia.setdefault(bloque.get("dia") or "Sin día asignado", []).append(bloque)
 
-    for dia in sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS)):
+    dias_ordenados = sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS))
+    for idx, dia in enumerate(dias_ordenados):
         etiqueta = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
-        titulo_dia = f"{dia}: {etiqueta}" if etiqueta else dia
-        with st.container(border=True):
-            with st.container(key=f"cabecera_dia_cliente_{cliente_id}_{dia}"):
-                st.markdown(f"### {titulo_dia}")
+        titulo_dia = f"🏋️ {dia}: {etiqueta}" if etiqueta else f"🏋️ {dia}"
+        with st.expander(titulo_dia, expanded=(idx == 0)):
             for i, ejercicio in enumerate(por_dia[dia]):
                 if i > 0:
                     st.divider()
                 st.markdown(f"#### {ejercicio.get('ejercicio') or 'Ejercicio sin nombre'}")
+                musculo = ejercicio.get("musculo")
+                if musculo in MUSCULOS:
+                    color, _ = MUSCULO_COLOR.get(musculo, ("gray", "#ADB5BD"))
+                    st.badge(musculo, color=color)
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Series", ejercicio.get("series") if ejercicio.get("series") is not None else "—")
                 col2.metric("Reps", ejercicio.get("repeticiones") or "—")
