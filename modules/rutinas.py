@@ -126,7 +126,7 @@ def render_admin(cliente_id: str) -> None:
             st.session_state[etiqueta_key] = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
 
         etiqueta_actual = st.session_state.get(etiqueta_key, "")
-        titulo_expander = f"🏋️ {dia}: {etiqueta_actual}" if etiqueta_actual else f"🏋️ {dia}"
+        titulo_expander = f"{dia}: {etiqueta_actual}" if etiqueta_actual else dia
         with st.expander(titulo_expander, expanded=True):
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
@@ -239,7 +239,7 @@ def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
     series_orden = [f[1] for f in filas]
     colores = [MUSCULO_COLOR.get(m, ("gray", "#ADB5BD"))[1] for m in musculos_orden]
 
-    st.markdown("##### 📊 Volumen total por músculo (series de toda la rutina)")
+    st.markdown("##### Volumen total por músculo (series de toda la rutina)")
     fig = go.Figure(
         go.Bar(
             x=series_orden,
@@ -283,7 +283,7 @@ def render_cliente(cliente_id: str) -> None:
     dias_ordenados = sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS))
     for idx, dia in enumerate(dias_ordenados):
         etiqueta = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
-        titulo_dia = f"🏋️ {dia}: {etiqueta}" if etiqueta else f"🏋️ {dia}"
+        titulo_dia = f"{dia}: {etiqueta}" if etiqueta else dia
         with st.expander(titulo_dia, expanded=(idx == 0)):
             for i, ejercicio in enumerate(por_dia[dia]):
                 if i > 0:
