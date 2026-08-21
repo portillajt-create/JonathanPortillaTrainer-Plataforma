@@ -23,6 +23,7 @@ import time
 import uuid
 from typing import Any
 
+import pandas as pd
 import streamlit as st
 
 from modules import checkin
@@ -32,7 +33,15 @@ from utils.queries import get_rutina_activa, guardar_rutina
 
 DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
 
-BLOQUE_DEFAULT = {"dia": DIAS[0], "ejercicio": "", "series": 3, "repeticiones": "8-12", "rpe_rir": "RIR 2", "descanso_min": 1.5, "notas": ""}
+MUSCULOS = [
+    "Pectoral", "Espalda", "Cuádriceps", "Isquios", "Hombros", "Glúteo", "Bíceps",
+    "Tríceps", "Trapecio", "Aductores", "Abductores", "Pantorrillas", "Antebrazos", "Abdomen",
+]
+
+BLOQUE_DEFAULT = {
+    "dia": DIAS[0], "ejercicio": "", "musculo": MUSCULOS[0], "series": 3,
+    "repeticiones": "8-12", "rpe_rir": "RIR 2", "descanso_min": 1.5, "notas": "",
+}
 
 
 def render_alertas_entrenamiento() -> None:
@@ -118,24 +127,31 @@ def render_admin(cliente_id: str) -> None:
                         st.session_state[bloques_key] = [b for b in bloques if b["_id"] != bid]
                         st.rerun()
 
-                col4, col5, col6, col7 = st.columns(4)
+                col4, col5, col6, col7, col8 = st.columns(5)
                 with col4:
+                    musculo_actual = bloque.get("musculo") if bloque.get("musculo") in MUSCULOS else MUSCULOS[0]
+                    bloque["musculo"] = st.selectbox(
+                        "Músculo", MUSCULOS, index=MUSCULOS.index(musculo_actual), key=f"musculo_{bid}"
+                    )
+                with col5:
                     bloque["series"] = st.number_input(
                         "Series", min_value=1, max_value=15, step=1, value=int(bloque.get("series") or 3), key=f"series_{bid}"
                     )
-                with col5:
+                with col6:
                     bloque["repeticiones"] = st.text_input(
                         "Repeticiones", value=bloque.get("repeticiones") or "8-12", key=f"reps_{bid}"
                     )
-                with col6:
-                    bloque["rpe_rir"] = st.text_input("RPE / RIR", value=bloque.get("rpe_rir") or "RIR 2", key=f"rpe_{bid}")
                 with col7:
+                    bloque["rpe_rir"] = st.text_input("RPE / RIR", value=bloque.get("rpe_rir") or "RIR 2", key=f"rpe_{bid}")
+                with col8:
                     bloque["descanso_min"] = st.number_input(
                         "Descanso (min)", min_value=0.0, max_value=10.0, step=0.5,
                         value=float(bloque.get("descanso_min") or 1.5), key=f"descanso_{bid}"
                     )
 
                 bloque["notas"] = st.text_input("Notas técnicas", value=bloque.get("notas") or "", key=f"notas_{bid}")
+
+    _render_resumen_volumen(bloques)
 
     if st.button("➕ Agregar ejercicio"):
         st.session_state[bloques_key].append({**BLOQUE_DEFAULT, "_id": str(uuid.uuid4())})
@@ -183,6 +199,25 @@ def render_admin(cliente_id: str) -> None:
         st.success("✅ Rutina actualizada y asesorado notificado.")
         time.sleep(5)
         st.rerun()
+
+
+def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
+    """Series totales por músculo en toda la rutina (suma de todos los días)."""
+    conteo = {musculo: 0 for musculo in MUSCULOS}
+    for bloque in bloques:
+        if not (bloque.get("ejercicio") or "").strip():
+            continue
+        musculo = bloque.get("musculo") if bloque.get("musculo") in MUSCULOS else None
+        if musculo:
+            conteo[musculo] += int(bloque.get("series") or 0)
+
+    filas = [{"Músculo": musculo, "Series totales": series} for musculo, series in conteo.items() if series > 0]
+    if not filas:
+        return
+
+    st.markdown("##### 📊 Volumen total por músculo (series de toda la rutina)")
+    tabla = pd.DataFrame(filas).sort_values("Series totales", ascending=False).reset_index(drop=True)
+    st.dataframe(tabla, use_container_width=True, hide_index=True)
 
 
 def render_cliente(cliente_id: str) -> None:
