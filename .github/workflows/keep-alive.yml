@@ -1,0 +1,16 @@
+name: Mantener despierta la app de Streamlit
+
+# Streamlit Community Cloud duerme la app tras varios días sin visitas.
+# Este workflow la "visita" cada 2 días para que nunca llegue a dormirse.
+# workflow_dispatch permite dispararlo manualmente desde la pestaña Actions.
+on:
+  schedule:
+    - cron: "0 13 */2 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Visitar la app
+        run: curl -sSf --retry 3 --max-time 30 https://jonathanportillatrainer.streamlit.app > /dev/null
