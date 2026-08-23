@@ -61,10 +61,13 @@ CSS = """
 
 /* Botones type="primary": con primaryColor blanco (paleta de marca) el
    fondo del botón queda blanco, pero el texto por defecto también se
-   queda blanco — invisible. Forzamos texto negro solo en estos botones. */
-.stButton > button[kind="primary"],
-.stFormSubmitButton > button[kind="primary"],
-.stDownloadButton > button[kind="primary"] {
+   queda blanco — invisible. Forzamos texto negro solo en estos botones.
+   Usamos [kind^="primary"] (empieza con) en vez de [kind="primary"]
+   (igual exacto) porque los botones dentro de un st.form usan
+   kind="primaryFormSubmit", no "primary" a secas. */
+.stButton > button[kind^="primary"],
+.stFormSubmitButton > button[kind^="primary"],
+.stDownloadButton > button[kind^="primary"] {
     color: #0B0B0C !important;
 }
 
