@@ -1,11 +1,17 @@
 name: Mantener despierta la app de Streamlit
 
-# Streamlit Community Cloud duerme la app tras varios días sin visitas.
-# Este workflow la "visita" cada 2 días para que nunca llegue a dormirse.
+# Streamlit Community Cloud duerme la app tras un periodo sin visitas
+# (en la práctica, parece ser más corto de lo documentado). Este workflow
+# la "visita" cada 12 horas para que nunca llegue a dormirse.
 # workflow_dispatch permite dispararlo manualmente desde la pestaña Actions.
+#
+# Nota: esto hace un curl simple a la URL. Streamlit necesita una sesión
+# activa (WebSocket) para contar como "uso real", así que un curl podría
+# no bastar por sí solo — si la app se sigue durmiendo pese a esto, el
+# siguiente paso sería simular una visita real con un navegador headless.
 on:
   schedule:
-    - cron: "0 13 */2 * *"
+    - cron: "0 */12 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -13,4 +19,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Visitar la app
-        run: curl -sSf --retry 3 --max-time 30 https://jonathanportillatrainer.streamlit.app > /dev/null
+        run: curl -sSfL --retry 3 --max-time 30 https://jonathanportillatrainer.streamlit.app > /dev/null
