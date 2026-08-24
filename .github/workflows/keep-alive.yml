@@ -1,14 +1,11 @@
 name: Mantener despierta la app de Streamlit
 
 # Streamlit Community Cloud duerme la app tras un periodo sin visitas
-# (en la práctica, parece ser más corto de lo documentado). Este workflow
-# la "visita" cada 12 horas para que nunca llegue a dormirse.
+# reales. Un curl simple NO basta: se probó y terminó en un bucle de
+# redirecciones (la app necesita cookies + JavaScript para "despertar"),
+# así que este workflow usa un navegador real (headless, con Playwright)
+# para simular una visita de verdad cada 12 horas.
 # workflow_dispatch permite dispararlo manualmente desde la pestaña Actions.
-#
-# Nota: esto hace un curl simple a la URL. Streamlit necesita una sesión
-# activa (WebSocket) para contar como "uso real", así que un curl podría
-# no bastar por sí solo — si la app se sigue durmiendo pese a esto, el
-# siguiente paso sería simular una visita real con un navegador headless.
 on:
   schedule:
     - cron: "0 */12 * * *"
@@ -18,5 +15,13 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Visitar la app
-        run: curl -sSfL --retry 3 --max-time 30 https://jonathanportillatrainer.streamlit.app > /dev/null
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar Playwright + Chromium
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Visitar la app con navegador real
+        run: node .github/scripts/keep_alive.js
