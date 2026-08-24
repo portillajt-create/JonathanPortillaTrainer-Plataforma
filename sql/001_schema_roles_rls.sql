@@ -346,6 +346,40 @@ create trigger trg_prevent_role_escalation
     for each row execute function public.prevent_role_self_escalation();
 
 -- =====================================================================
+-- TRIGGER DE SEGURIDAD: la policy notificaciones_update deja actualizar
+-- cualquier columna de una notificación propia (solo la app, a nivel de
+-- UI, restringe eso a marcarla como leída). Un cliente con conocimientos
+-- técnicos podría llamar directo a la API de Supabase y reescribir el
+-- título/mensaje de su propia notificación. Este trigger blinda todas
+-- las columnas salvo "leida" para peticiones no-admin, mismo patrón que
+-- prevent_role_self_escalation.
+-- =====================================================================
+create or replace function public.prevent_notificacion_tamper()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if auth.uid() is not null and not public.is_admin() then
+        new.cliente_id := old.cliente_id;
+        new.tipo := old.tipo;
+        new.titulo := old.titulo;
+        new.mensaje := old.mensaje;
+        new.email_enviado := old.email_enviado;
+        new.creado_por := old.creado_por;
+        new.created_at := old.created_at;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_notificacion_tamper on public.notificaciones;
+create trigger trg_prevent_notificacion_tamper
+    before update on public.notificaciones
+    for each row execute function public.prevent_notificacion_tamper();
+
+-- =====================================================================
 -- ROW LEVEL SECURITY (RLS)
 -- Regla general en todas las tablas:
 --   - Admin (is_admin() = true): acceso total (select/insert/update/delete)

@@ -89,14 +89,19 @@ def render_auth_screen() -> None:
             submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True)
 
         if submitted_signup:
-            try:
-                signup_cliente(email_signup, password_signup, nombre)
-                st.success(
-                    "✅ ¡Cuenta creada con éxito! Ve a la pestaña **'Iniciar sesión'** de arriba "
-                    "y entra con el correo y la contraseña que acabas de registrar."
-                )
-            except Exception as exc:
-                st.error(f"No se pudo crear la cuenta: {exc}")
+            if not nombre.strip() or not email_signup.strip():
+                st.warning("Completa tu nombre y correo electrónico.")
+            elif len(password_signup) < 8:
+                st.warning("La contraseña debe tener al menos 8 caracteres.")
+            else:
+                try:
+                    signup_cliente(email_signup, password_signup, nombre)
+                    st.success(
+                        "✅ ¡Cuenta creada con éxito! Ve a la pestaña **'Iniciar sesión'** de arriba "
+                        "y entra con el correo y la contraseña que acabas de registrar."
+                    )
+                except Exception as exc:
+                    st.error(f"No se pudo crear la cuenta: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -118,8 +123,8 @@ def render_reset_password_screen(token_hash: str) -> None:
         submitted = st.form_submit_button("Guardar nueva contraseña", use_container_width=True)
 
     if submitted:
-        if not nueva or len(nueva) < 6:
-            st.error("La contraseña debe tener al menos 6 caracteres.")
+        if not nueva or len(nueva) < 8:
+            st.error("La contraseña debe tener al menos 8 caracteres.")
         elif nueva != confirmar:
             st.error("Las contraseñas no coinciden.")
         elif complete_password_reset(token_hash, nueva):
