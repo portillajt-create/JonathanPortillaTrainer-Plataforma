@@ -73,6 +73,7 @@ create table if not exists public.onboarding (
     id                      uuid primary key default gen_random_uuid(),
     cliente_id              uuid not null unique references public.clientes (id) on delete cascade,
     fecha_nacimiento        date,
+    sexo                    text check (sexo in ('Hombre', 'Mujer')),
     altura_cm               numeric,
     peso_kg                 numeric,    -- peso de referencia; el peso semanal real vive en checkin_semanal
     ocupacion               text,

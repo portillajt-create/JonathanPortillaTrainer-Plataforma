@@ -47,6 +47,8 @@ def render_formulario_cliente(cliente_id: str) -> None:
             fecha_nacimiento = st.date_input(
                 "Fecha de nacimiento", value=fecha_nacimiento_actual, min_value=date(1940, 1, 1), max_value=date.today()
             )
+            sexo_actual = datos.get("sexo") if datos.get("sexo") in ("Hombre", "Mujer") else "Hombre"
+            sexo = st.selectbox("Sexo", ["Hombre", "Mujer"], index=["Hombre", "Mujer"].index(sexo_actual))
             ocupacion = st.text_input("Ocupación", value=datos.get("ocupacion") or "")
         with col2:
             altura_cm = st.number_input("Altura (cm)", min_value=100.0, max_value=230.0, step=1.0, value=float(datos.get("altura_cm") or 170))
@@ -100,6 +102,7 @@ def render_formulario_cliente(cliente_id: str) -> None:
         upsert_onboarding(
             cliente_id,
             fecha_nacimiento=fecha_nacimiento.isoformat(),
+            sexo=sexo,
             altura_cm=altura_cm,
             peso_kg=peso_kg,
             ocupacion=ocupacion,
@@ -171,6 +174,7 @@ def render_ficha_admin(cliente_id: str) -> None:
         st.markdown("##### Datos personales")
         col7, col8 = st.columns(2)
         col7.write(f"• **Fecha de nacimiento:** {datos.get('fecha_nacimiento') or '—'}")
+        col7.write(f"• **Sexo:** {datos.get('sexo') or '—'}")
         col7.write(f"• **Ocupación:** {datos.get('ocupacion') or '—'}")
         col8.write(f"• **Ciudad/País:** {datos.get('ciudad_pais') or '—'}")
 

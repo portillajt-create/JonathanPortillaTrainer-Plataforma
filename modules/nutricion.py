@@ -79,7 +79,12 @@ def render_admin(cliente_id: str) -> None:
         edad_actual = _calcular_edad(onboarding_cliente.get("fecha_nacimiento")) or 30
         edad = st.number_input("Edad", min_value=14, max_value=90, step=1, value=edad_actual)
     with col4:
-        sexo_actual = dieta_actual.get("sexo") if dieta_actual and dieta_actual.get("sexo") in ("Hombre", "Mujer") else "Hombre"
+        if dieta_actual and dieta_actual.get("sexo") in ("Hombre", "Mujer"):
+            sexo_actual = dieta_actual["sexo"]
+        elif onboarding_cliente.get("sexo") in ("Hombre", "Mujer"):
+            sexo_actual = onboarding_cliente["sexo"]
+        else:
+            sexo_actual = "Hombre"
         sexo = st.selectbox("Sexo", ["Hombre", "Mujer"], index=["Hombre", "Mujer"].index(sexo_actual))
 
     niveles = list(FACTORES_ACTIVIDAD.keys())

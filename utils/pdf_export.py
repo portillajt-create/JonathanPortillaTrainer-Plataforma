@@ -108,6 +108,7 @@ def generar_pdf_onboarding(cliente: dict[str, Any], datos: dict[str, Any]) -> by
     _seccion(pdf, "Datos personales")
     _campo(pdf, "Fecha de nacimiento", datos.get("fecha_nacimiento"))
     _campo(pdf, "Edad", f"{edad} años" if edad is not None else None)
+    _campo(pdf, "Sexo", datos.get("sexo"))
     _campo(pdf, "Ocupación", datos.get("ocupacion"))
     _campo(pdf, "Ciudad / País", datos.get("ciudad_pais"))
     _campo(pdf, "Altura", f"{datos['altura_cm']:.0f} cm" if datos.get("altura_cm") is not None else None)
