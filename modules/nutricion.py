@@ -114,7 +114,7 @@ def render_admin(cliente_id: str) -> None:
     with col5:
         proteina_g_kg = st.slider("Proteína (g por kg de peso corporal)", 1.2, 3.0, proteina_actual, 0.1)
     with col6:
-        grasa_pct = st.slider("Grasas (% de las calorías objetivo)", 15, 40, grasa_actual, 5)
+        grasa_pct = st.slider("Grasas (% de las calorías objetivo)", 15, 40, grasa_actual, 1)
 
     proteinas_g = peso_kg * proteina_g_kg
     proteina_kcal = proteinas_g * 4
