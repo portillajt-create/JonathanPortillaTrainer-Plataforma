@@ -153,9 +153,11 @@ def _render_pie_pagina() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Selector de cliente reutilizable en las páginas de admin
+# Selector de cliente reutilizable en las páginas de admin. Usa una única key
+# de session_state ("selector_cliente_admin") para que el cliente elegido se
+# mantenga al cambiar de página, hasta que el admin lo cambie de nuevo.
 # ---------------------------------------------------------------------------
-def _selector_cliente(key: str) -> str | None:
+def _selector_cliente() -> str | None:
     clientes = list_clientes()
     if not clientes:
         st.info("Todavía no hay clientes registrados.")
@@ -164,7 +166,9 @@ def _selector_cliente(key: str) -> str | None:
     opciones = {f"{c['nombre_completo'] or c['email']} — {c['email']}": c["id"] for c in clientes}
     with st.container(border=True):
         st.markdown("###### 👤 Cliente seleccionado")
-        seleccion = st.selectbox("Cliente", list(opciones.keys()), key=key, label_visibility="collapsed")
+        seleccion = st.selectbox(
+            "Cliente", list(opciones.keys()), key="selector_cliente_admin", label_visibility="collapsed"
+        )
     return opciones[seleccion]
 
 
@@ -197,23 +201,23 @@ def render_admin_shell() -> None:
     if pagina == "Gestión de Clientes":
         admin_clientes.render()
     elif pagina == "Ficha del Atleta":
-        cliente_id = _selector_cliente(key="selector_ficha")
+        cliente_id = _selector_cliente()
         if cliente_id:
             onboarding.render_ficha_admin(cliente_id)
     elif pagina == "Nutrición y Macros":
         nutricion.render_alertas_nutricion()
         st.divider()
-        cliente_id = _selector_cliente(key="selector_nutricion")
+        cliente_id = _selector_cliente()
         if cliente_id:
             nutricion.render_admin(cliente_id)
     elif pagina == "Entrenamiento":
         rutinas.render_alertas_entrenamiento()
         st.divider()
-        cliente_id = _selector_cliente(key="selector_rutinas")
+        cliente_id = _selector_cliente()
         if cliente_id:
             rutinas.render_admin(cliente_id)
     elif pagina == "Progreso":
-        cliente_id = _selector_cliente(key="selector_progreso")
+        cliente_id = _selector_cliente()
         if cliente_id:
             hevy_integration.render_progreso(cliente_id)
 
