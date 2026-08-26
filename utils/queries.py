@@ -13,6 +13,16 @@ from typing import Any
 from utils.supabase_client import get_supabase_client
 
 
+def admin_eliminar_cliente(cliente_id: str) -> None:
+    """
+    Elimina por completo la cuenta de un cliente (auth.users + todo lo que
+    cuelga de él en cascada) vía la función SQL "admin_delete_cliente",
+    que valida server-side que quien llama sea admin. Ver sql/001_schema_roles_rls.sql.
+    """
+    supabase = get_supabase_client()
+    supabase.rpc("admin_delete_cliente", {"target_id": cliente_id}).execute()
+
+
 def list_clientes(rol: str | None = "cliente") -> list[dict[str, Any]]:
     """Lista clientes (por defecto solo rol='cliente') ordenados por nombre."""
     supabase = get_supabase_client()

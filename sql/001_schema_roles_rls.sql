@@ -380,6 +380,35 @@ create trigger trg_prevent_notificacion_tamper
     for each row execute function public.prevent_notificacion_tamper();
 
 -- =====================================================================
+-- FUNCIÓN: admin_delete_cliente — permite al admin eliminar la cuenta
+-- completa de un cliente (auth.users + todo lo que cuelga de él por
+-- "on delete cascade") desde la app, sin exponer la service_role key.
+-- La app solo tiene la clave "anon", que no puede borrar de auth.users
+-- directamente; esta función corre con los privilegios de quien la creó
+-- (security definer, mismo patrón que is_admin()/handle_new_user()) y
+-- por eso sí puede. Bloquea a cualquiera que no sea admin autenticado, y
+-- al propio admin borrarse a sí mismo por error.
+-- =====================================================================
+create or replace function public.admin_delete_cliente(target_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if auth.uid() is null or not public.is_admin() then
+        raise exception 'No autorizado para eliminar clientes';
+    end if;
+    if target_id = auth.uid() then
+        raise exception 'No puedes eliminar tu propia cuenta de administrador';
+    end if;
+    delete from auth.users where id = target_id;
+end;
+$$;
+
+grant execute on function public.admin_delete_cliente(uuid) to authenticated;
+
+-- =====================================================================
 -- ROW LEVEL SECURITY (RLS)
 -- Regla general en todas las tablas:
 --   - Admin (is_admin() = true): acceso total (select/insert/update/delete)

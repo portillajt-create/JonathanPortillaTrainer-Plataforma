@@ -23,7 +23,7 @@ import streamlit as st
 
 from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
-from utils.queries import list_clientes_con_suscripcion, upsert_suscripcion
+from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion, upsert_suscripcion
 
 PLANES = ["Mensual", "Trimestral", "Semestral", "Personalizado"]
 
@@ -177,3 +177,24 @@ def _render_form_suscripcion(cliente: dict) -> None:
         )
         st.success("Suscripción actualizada.")
         st.rerun()
+
+    st.divider()
+    if st.button("🗑️ Eliminar cliente", key=f"eliminar_{cliente_id}"):
+        _confirmar_eliminar_cliente(cliente_id, cliente["nombre_completo"] or cliente["email"])
+
+
+@st.dialog("Eliminar cliente")
+def _confirmar_eliminar_cliente(cliente_id: str, nombre: str) -> None:
+    st.warning(
+        f"⚠️ Vas a eliminar por completo la cuenta de **{nombre}**: su perfil, dieta, rutina, "
+        "check-ins y notificaciones desaparecen para siempre. Esta acción no se puede deshacer."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+    with col2:
+        if st.button("Sí, eliminar definitivamente", use_container_width=True):
+            admin_eliminar_cliente(cliente_id)
+            st.success(f"{nombre} fue eliminado.")
+            st.rerun()
