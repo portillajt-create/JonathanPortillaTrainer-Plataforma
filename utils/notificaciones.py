@@ -17,13 +17,15 @@ from email.mime.text import MIMEText
 
 import streamlit as st
 
-from config import SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USER
+from config import ADMIN_NOTIFICATION_EMAIL, SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USER
 from utils.queries import get_cliente
 from utils.supabase_client import get_supabase_client
 
 
 def crear_notificacion(cliente_id: str, tipo: str, titulo: str, mensaje: str, creado_por: str | None) -> None:
-    email_enviado = _intentar_enviar_email(cliente_id, titulo, mensaje)
+    cliente = get_cliente(cliente_id)
+    destinatario = cliente.get("email") if cliente else None
+    email_enviado = _enviar_email(destinatario, titulo, mensaje) if destinatario else False
 
     supabase = get_supabase_client()
     supabase.table("notificaciones").insert(
@@ -38,13 +40,22 @@ def crear_notificacion(cliente_id: str, tipo: str, titulo: str, mensaje: str, cr
     ).execute()
 
 
-def _intentar_enviar_email(cliente_id: str, titulo: str, mensaje: str) -> bool:
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
-        return False
+def notificar_admin_nuevo_cliente(nombre_completo: str, email: str) -> None:
+    """
+    Avisa por correo al entrenador cuando un cliente nuevo se autorregistra.
+    No pasa por la tabla "notificaciones" (esa es solo para avisos admin -> cliente);
+    esto es un correo directo, sin registro in-app ni pantalla que lo muestre.
+    """
+    _enviar_email(
+        ADMIN_NOTIFICATION_EMAIL,
+        "Nuevo cliente registrado en tu plataforma",
+        f"{nombre_completo or 'Un nuevo usuario'} ({email}) acaba de crear una cuenta en "
+        "Jonathan Portilla Trainer. Actívale la suscripción desde 'Gestión de Clientes' cuando quieras.",
+    )
 
-    cliente = get_cliente(cliente_id)
-    destinatario = cliente.get("email") if cliente else None
-    if not destinatario:
+
+def _enviar_email(destinatario: str, titulo: str, mensaje: str) -> bool:
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and destinatario):
         return False
 
     try:
@@ -59,5 +70,5 @@ def _intentar_enviar_email(cliente_id: str, titulo: str, mensaje: str) -> bool:
             server.send_message(email_msg)
         return True
     except Exception as exc:
-        st.warning(f"La notificación in-app se guardó, pero el correo no pudo enviarse: {exc}")
+        st.warning(f"El correo a {destinatario} no pudo enviarse: {exc}")
         return False

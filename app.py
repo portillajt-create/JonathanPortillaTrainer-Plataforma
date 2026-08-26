@@ -29,6 +29,7 @@ from utils.auth import (
     signup_cliente,
 )
 from utils.branding import FAVICON, ICON, LOGIN_HERO, LOGO_FULL, NOMBRE
+from utils.notificaciones import notificar_admin_nuevo_cliente
 from utils.queries import get_onboarding, get_suscripcion_vista, list_clientes
 from utils.session import init_session_state
 
@@ -96,6 +97,7 @@ def render_auth_screen() -> None:
             else:
                 try:
                     signup_cliente(email_signup, password_signup, nombre)
+                    notificar_admin_nuevo_cliente(nombre, email_signup)
                     st.success(
                         "✅ ¡Cuenta creada con éxito! Ve a la pestaña **'Iniciar sesión'** de arriba "
                         "y entra con el correo y la contraseña que acabas de registrar."

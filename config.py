@@ -45,3 +45,9 @@ SMTP_PORT = _get_config("SMTP_PORT", "587")
 SMTP_USER = _get_config("SMTP_USER")
 SMTP_PASSWORD = _get_config("SMTP_PASSWORD")
 SMTP_FROM = _get_config("SMTP_FROM") or SMTP_USER
+
+# Correo del entrenador/admin que recibe el aviso de "cliente nuevo registrado".
+# No se puede leer desde la tabla "clientes" en ese momento (RLS: un cliente
+# recién creado todavía no puede ver la fila del admin), así que va fijo aquí
+# — configurable por si el correo del admin cambia más adelante.
+ADMIN_NOTIFICATION_EMAIL = _get_config("ADMIN_NOTIFICATION_EMAIL") or "portillajt@gmail.com"
