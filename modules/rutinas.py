@@ -152,7 +152,12 @@ def render_admin(cliente_id: str) -> None:
                 if i > 0:
                     st.divider()
 
-                col_up, col_down, col1, col2, col3 = st.columns([0.5, 0.5, 1, 3, 1])
+                col1, col2, col_up, col_down, col3 = st.columns([1, 3, 0.5, 0.5, 1])
+                with col1:
+                    dia_actual = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
+                    bloque["dia"] = st.selectbox("Día", DIAS, index=DIAS.index(dia_actual), key=f"dia_{bid}")
+                with col2:
+                    bloque["ejercicio"] = st.text_input("Ejercicio", value=bloque.get("ejercicio", ""), key=f"ejercicio_{bid}")
                 with col_up:
                     st.write("")
                     if st.button("⬆️", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir"):
@@ -165,11 +170,6 @@ def render_admin(cliente_id: str) -> None:
                     ):
                         _mover_bloque(st.session_state[bloques_key], bid, dia, 1)
                         st.rerun()
-                with col1:
-                    dia_actual = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
-                    bloque["dia"] = st.selectbox("Día", DIAS, index=DIAS.index(dia_actual), key=f"dia_{bid}")
-                with col2:
-                    bloque["ejercicio"] = st.text_input("Ejercicio", value=bloque.get("ejercicio", ""), key=f"ejercicio_{bid}")
                 with col3:
                     st.write("")
                     if st.button("🗑️ Quitar", key=f"quitar_{bid}", use_container_width=True):
