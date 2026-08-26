@@ -91,7 +91,7 @@ def render_formulario_cliente(cliente_id: str) -> None:
             placeholder="https://hevy.com/user/tu_usuario",
         )
 
-        submitted = st.form_submit_button("💾 Guardar mi información", use_container_width=True)
+        submitted = st.form_submit_button("💾 Guardar mi información", use_container_width=True, type="primary")
 
     if submitted:
         upsert_onboarding(

@@ -59,16 +59,18 @@ CSS = """
     filter: brightness(1.12);
 }
 
-/* Botones type="primary": con primaryColor blanco (paleta de marca) el
-   fondo del botón queda blanco, pero el texto por defecto también se
-   queda blanco — invisible. Forzamos texto negro solo en estos botones.
+/* Botones type="primary": mismo degradado cian-azul de la landing page,
+   para que la acción principal de cada pantalla se sienta parte de la
+   misma identidad. Texto oscuro porque el degradado es claro.
    Usamos [kind^="primary"] (empieza con) en vez de [kind="primary"]
    (igual exacto) porque los botones dentro de un st.form usan
    kind="primaryFormSubmit", no "primary" a secas. */
 .stButton > button[kind^="primary"],
 .stFormSubmitButton > button[kind^="primary"],
 .stDownloadButton > button[kind^="primary"] {
-    color: #0B0B0C !important;
+    background: linear-gradient(120deg, #5EEAD4, #3B82F6) !important;
+    border: none !important;
+    color: #04110F !important;
 }
 
 /* Alertas/notificaciones (st.success/info/warning/error): esquinas redondeadas */
@@ -161,8 +163,8 @@ def render_perfil_sidebar(nombre: str, rol: str) -> None:
     nombre_seguro = _html.escape(nombre)
     iniciales = _html.escape(_iniciales(nombre))
     es_admin = rol.strip().lower().startswith("admin")
-    badge_bg = "#FFFFFF" if es_admin else "#2A2A2E"
-    badge_color = "#0B0B0C" if es_admin else "#E6E6E6"
+    badge_bg = "linear-gradient(120deg, #5EEAD4, #3B82F6)" if es_admin else "#2A2A2E"
+    badge_color = "#04110F" if es_admin else "#E6E6E6"
     etiqueta = "ADMINISTRADOR" if es_admin else "ASESORADO"
 
     st.markdown(
@@ -236,7 +238,8 @@ MENU_STYLES = {
         "--hover-color": "#1c1c1f",
     },
     "nav-link-selected": {
-        "background-color": "#232326",
+        "background": "linear-gradient(120deg, rgba(94,234,212,0.16), rgba(59,130,246,0.16))",
+        "border": "1px solid rgba(94,234,212,0.35)",
         "color": "#FFFFFF",
         "font-weight": "600",
     },

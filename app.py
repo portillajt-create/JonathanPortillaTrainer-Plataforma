@@ -54,7 +54,7 @@ def render_auth_screen() -> None:
         with st.form("login_form"):
             email = st.text_input("Correo electrónico")
             password = st.text_input("Contraseña", type="password")
-            submitted = st.form_submit_button("Iniciar sesión", use_container_width=True)
+            submitted = st.form_submit_button("Iniciar sesión", use_container_width=True, type="primary")
 
         if submitted:
             if login(email, password):
@@ -86,7 +86,7 @@ def render_auth_screen() -> None:
             nombre = st.text_input("Nombre completo")
             email_signup = st.text_input("Correo electrónico", key="signup_email")
             password_signup = st.text_input("Contraseña", type="password", key="signup_password")
-            submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True)
+            submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True, type="primary")
 
         if submitted_signup:
             if not nombre.strip() or not email_signup.strip():
@@ -120,7 +120,7 @@ def render_reset_password_screen(token_hash: str) -> None:
     with st.form("reset_password_form"):
         nueva = st.text_input("Nueva contraseña", type="password")
         confirmar = st.text_input("Confirmar nueva contraseña", type="password")
-        submitted = st.form_submit_button("Guardar nueva contraseña", use_container_width=True)
+        submitted = st.form_submit_button("Guardar nueva contraseña", use_container_width=True, type="primary")
 
     if submitted:
         if not nueva or len(nueva) < 8:
