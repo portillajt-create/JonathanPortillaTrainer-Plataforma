@@ -73,6 +73,24 @@ CSS = """
     color: #04110F !important;
 }
 
+/* Botones ↑/↓ de reordenar ejercicios (Entrenamiento): fondo negro normal
+   (para que se vean bien también deshabilitados, que con type="primary"
+   quedaban en blanco), con la flecha en degradado cian-azul aplicado al
+   texto en vez de al fondo del botón. */
+[class*="st-key-arrow-up-"] button p,
+[class*="st-key-arrow-down-"] button p {
+    background: linear-gradient(120deg, #5EEAD4, #3B82F6) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    font-weight: 700;
+}
+[class*="st-key-arrow-up-"] button:disabled p,
+[class*="st-key-arrow-down-"] button:disabled p {
+    opacity: 0.35;
+}
+
 /* Título de cada pantalla (st.title, una sola vez por página vía
    _render_titulo en app.py — admin y cliente comparten la misma función,
    así que este detalle queda igual en ambos lados). Mismo degradado que
