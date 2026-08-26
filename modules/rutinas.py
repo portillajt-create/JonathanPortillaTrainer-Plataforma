@@ -160,13 +160,17 @@ def render_admin(cliente_id: str) -> None:
                     bloque["ejercicio"] = st.text_input("Ejercicio", value=bloque.get("ejercicio", ""), key=f"ejercicio_{bid}")
                 with col_up:
                     st.write("")
-                    if st.button("⬆️", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir"):
+                    if st.button(
+                        "⬆️", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir",
+                        type="primary",
+                    ):
                         _mover_bloque(st.session_state[bloques_key], bid, dia, -1)
                         st.rerun()
                 with col_down:
                     st.write("")
                     if st.button(
-                        "⬇️", key=f"bajar_{bid}", disabled=(i == total_dia - 1), use_container_width=True, help="Bajar"
+                        "⬇️", key=f"bajar_{bid}", disabled=(i == total_dia - 1), use_container_width=True, help="Bajar",
+                        type="primary",
                     ):
                         _mover_bloque(st.session_state[bloques_key], bid, dia, 1)
                         st.rerun()
