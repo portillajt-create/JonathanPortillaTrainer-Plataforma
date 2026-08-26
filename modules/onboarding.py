@@ -191,6 +191,7 @@ def render_ficha_admin(cliente_id: str) -> None:
         file_name=f"onboarding_{(cliente.get('nombre_completo') or cliente.get('email') or 'cliente').replace(' ', '_')}.pdf",
         mime="application/pdf",
         use_container_width=True,
+        type="primary",
     )
 
 
