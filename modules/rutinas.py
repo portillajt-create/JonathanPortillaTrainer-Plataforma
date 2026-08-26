@@ -161,7 +161,7 @@ def render_admin(cliente_id: str) -> None:
                 with col_up:
                     st.write("")
                     if st.button(
-                        "⬆️", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir",
+                        "↑", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir",
                         type="primary",
                     ):
                         _mover_bloque(st.session_state[bloques_key], bid, dia, -1)
@@ -169,7 +169,7 @@ def render_admin(cliente_id: str) -> None:
                 with col_down:
                     st.write("")
                     if st.button(
-                        "⬇️", key=f"bajar_{bid}", disabled=(i == total_dia - 1), use_container_width=True, help="Bajar",
+                        "↓", key=f"bajar_{bid}", disabled=(i == total_dia - 1), use_container_width=True, help="Bajar",
                         type="primary",
                     ):
                         _mover_bloque(st.session_state[bloques_key], bid, dia, 1)
