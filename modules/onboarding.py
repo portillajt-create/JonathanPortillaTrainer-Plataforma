@@ -64,7 +64,9 @@ def render_formulario_cliente(cliente_id: str) -> None:
         with col4:
             nivel_actual = datos.get("nivel_experiencia") if datos.get("nivel_experiencia") in NIVELES_EXPERIENCIA else NIVELES_EXPERIENCIA[0]
             nivel_experiencia = st.selectbox("Nivel de experiencia", NIVELES_EXPERIENCIA, index=NIVELES_EXPERIENCIA.index(nivel_actual))
-            disponibilidad_dias = st.slider("Días disponibles por semana", 0, 7, value=datos.get("disponibilidad_dias") or 3)
+            disponibilidad_dias = st.slider(
+                "Disponibilidad de entrenamiento (días por semana)", 0, 7, value=datos.get("disponibilidad_dias") or 3
+            )
         with col5:
             objetivo_actual = datos.get("objetivo_principal") if datos.get("objetivo_principal") in OBJETIVOS else OBJETIVOS[0]
             objetivo_principal = st.selectbox("Objetivo principal", OBJETIVOS, index=OBJETIVOS.index(objetivo_actual))
