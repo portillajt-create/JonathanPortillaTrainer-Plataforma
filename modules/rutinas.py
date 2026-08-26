@@ -33,6 +33,7 @@ import streamlit as st
 from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
+from utils.formato import formatear_fecha_hora
 from utils.notificaciones import crear_notificacion
 from utils.queries import get_rutina_activa, guardar_rutina
 
@@ -69,6 +70,20 @@ BLOQUE_DEFAULT = {
 }
 
 
+def _mover_bloque(bloques: list[dict[str, Any]], bid: str, dia: str, direccion: int) -> None:
+    """
+    Sube (-1) o baja (+1) un ejercicio dentro de su mismo día, cambiando su
+    posición en la lista real (no solo la vista agrupada por día) para que
+    el orden se conserve al guardar.
+    """
+    indices_dia = [i for i, b in enumerate(bloques) if (b.get("dia") if b.get("dia") in DIAS else DIAS[0]) == dia]
+    pos = indices_dia.index(next(i for i in indices_dia if bloques[i]["_id"] == bid))
+    nueva_pos = pos + direccion
+    if 0 <= nueva_pos < len(indices_dia):
+        i, j = indices_dia[pos], indices_dia[nueva_pos]
+        bloques[i], bloques[j] = bloques[j], bloques[i]
+
+
 def render_alertas_entrenamiento() -> None:
     checkin.render_alertas_deload()
     st.info(
@@ -87,7 +102,7 @@ def render_admin(cliente_id: str) -> None:
         st.caption(
             f"Rutina vigente: {rutina_actual.get('nombre_rutina')} · "
             f"{len(rutina_actual.get('bloques') or [])} ejercicios · "
-            f"asignada el {(rutina_actual.get('fecha_asignacion') or '—')[:10]}"
+            f"asignada el {formatear_fecha_hora(rutina_actual.get('fecha_asignacion'))}"
         )
     else:
         st.info("Este cliente todavía no tiene una rutina asignada.")
@@ -110,32 +125,46 @@ def render_admin(cliente_id: str) -> None:
     bloques: list[dict[str, Any]] = st.session_state[bloques_key]
 
     if not bloques:
-        st.caption("Todavía no hay ejercicios. Agrega el primero abajo.")
+        st.caption("Todavía no hay ejercicios. Abre un día abajo y agrega el primero.")
 
-    por_dia: dict[str, list[dict[str, Any]]] = {}
+    por_dia: dict[str, list[dict[str, Any]]] = {dia: [] for dia in DIAS}
     for bloque in bloques:
         dia_bloque = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
-        por_dia.setdefault(dia_bloque, []).append(bloque)
+        por_dia[dia_bloque].append(bloque)
 
+    # Todos los días se muestran siempre (colapsados si están vacíos) para
+    # poder agregar el primer ejercicio de un día directamente ahí, y para
+    # que "Agregar ejercicio" quede dentro de cada día en vez de mandar
+    # siempre al Día 1.
     for dia in DIAS:
-        if dia not in por_dia:
-            continue
-
         etiqueta_key = f"rutina_etiqueta_{cliente_id}_{dia}"
         if etiqueta_key not in st.session_state:
             st.session_state[etiqueta_key] = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
 
         etiqueta_actual = st.session_state.get(etiqueta_key, "")
         titulo_expander = f"{dia}: {etiqueta_actual}" if etiqueta_actual else dia
-        with st.expander(titulo_expander, expanded=True):
+        with st.expander(titulo_expander, expanded=bool(por_dia[dia])):
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
+            total_dia = len(por_dia[dia])
             for i, bloque in enumerate(por_dia[dia]):
                 bid = bloque["_id"]
                 if i > 0:
                     st.divider()
 
-                col1, col2, col3 = st.columns([1, 3, 1])
+                col_up, col_down, col1, col2, col3 = st.columns([0.5, 0.5, 1, 3, 1])
+                with col_up:
+                    st.write("")
+                    if st.button("⬆️", key=f"subir_{bid}", disabled=(i == 0), use_container_width=True, help="Subir"):
+                        _mover_bloque(st.session_state[bloques_key], bid, dia, -1)
+                        st.rerun()
+                with col_down:
+                    st.write("")
+                    if st.button(
+                        "⬇️", key=f"bajar_{bid}", disabled=(i == total_dia - 1), use_container_width=True, help="Bajar"
+                    ):
+                        _mover_bloque(st.session_state[bloques_key], bid, dia, 1)
+                        st.rerun()
                 with col1:
                     dia_actual = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
                     bloque["dia"] = st.selectbox("Día", DIAS, index=DIAS.index(dia_actual), key=f"dia_{bid}")
@@ -171,9 +200,11 @@ def render_admin(cliente_id: str) -> None:
 
                 bloque["notas"] = st.text_input("Notas técnicas", value=bloque.get("notas") or "", key=f"notas_{bid}")
 
-    if st.button("➕ Agregar ejercicio"):
-        st.session_state[bloques_key].append({**BLOQUE_DEFAULT, "_id": str(uuid.uuid4())})
-        st.rerun()
+            if por_dia[dia]:
+                st.divider()
+            if st.button(f"➕ Agregar ejercicio a {dia}", key=f"agregar_{cliente_id}_{dia}"):
+                st.session_state[bloques_key].append({**BLOQUE_DEFAULT, "dia": dia, "_id": str(uuid.uuid4())})
+                st.rerun()
 
     _render_resumen_volumen(bloques)
 
@@ -264,7 +295,7 @@ def render_cliente(cliente_id: str) -> None:
         st.info("Tu entrenador todavía no te ha asignado una rutina.")
         return
 
-    st.caption(f"Asignada el {(rutina.get('fecha_asignacion') or '—')[:10]}")
+    st.caption(f"Asignada el {formatear_fecha_hora(rutina.get('fecha_asignacion'))}")
     st.markdown(f"### {rutina.get('nombre_rutina')}")
     if rutina.get("descripcion"):
         st.write(rutina["descripcion"])

@@ -26,6 +26,7 @@ from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
+from utils.formato import formatear_fecha_hora
 from utils.plan_alimentario import generar_ejemplo_dieta
 from utils.queries import get_dieta_activa, get_onboarding, guardar_dieta
 
@@ -58,7 +59,7 @@ def render_admin(cliente_id: str) -> None:
         st.caption(
             f"Plan vigente: {dieta_actual.get('calorias_objetivo', 0):.0f} kcal/día · "
             f"{dieta_actual.get('tipo_dieta') or '—'} · "
-            f"actualizado el {dieta_actual.get('fecha_actualizacion', '—')[:10]}"
+            f"actualizado el {formatear_fecha_hora(dieta_actual.get('fecha_actualizacion'))}"
         )
     else:
         st.info("Este cliente todavía no tiene un plan nutricional asignado.")
@@ -213,7 +214,7 @@ def render_cliente(cliente_id: str) -> None:
         st.info("Tu entrenador todavía no te ha asignado un plan nutricional.")
         return
 
-    st.caption(f"Última actualización: {(dieta.get('fecha_actualizacion') or '—')[:10]}")
+    st.caption(f"Última actualización: {formatear_fecha_hora(dieta.get('fecha_actualizacion'))}")
 
     col1, col2 = st.columns(2)
     col1.metric("Calorías objetivo", f"{dieta.get('calorias_objetivo', 0):.0f} kcal/día")
