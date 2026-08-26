@@ -165,7 +165,7 @@ def _render_form_suscripcion(cliente: dict) -> None:
             fecha_pago = st.date_input("Fecha del último pago", value=fecha_pago_actual, key=f"pago_{cliente_id}")
             fecha_vencimiento = st.date_input("Fecha de vencimiento", value=fecha_venc_actual, key=f"venc_{cliente_id}")
 
-        guardar = st.form_submit_button("💾 Guardar suscripción", use_container_width=True)
+        guardar = st.form_submit_button("💾 Guardar suscripción", use_container_width=True, type="primary")
 
     if guardar:
         upsert_suscripcion(
