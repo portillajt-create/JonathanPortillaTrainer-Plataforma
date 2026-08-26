@@ -17,6 +17,7 @@ acceso correspondiente se aplica en app.py al entrar a la app como cliente.
 
 from __future__ import annotations
 
+import calendar
 from datetime import date, timedelta
 
 import streamlit as st
@@ -26,6 +27,33 @@ from utils.notificaciones import crear_notificacion
 from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion, upsert_suscripcion
 
 PLANES = ["Mensual", "Trimestral", "Semestral", "Personalizado"]
+DURACION_MESES = {"Mensual": 1, "Trimestral": 3, "Semestral": 6}
+
+
+def _sumar_meses(fecha: date, meses: int) -> date:
+    """
+    Suma meses conservando el día del mes (ej: 26 ago + 1 mes = 26 sep).
+    Si el mes destino es más corto que ese día (ej: 31 ene + 1 mes), lo
+    ajusta al último día de ese mes en vez de reventar.
+    """
+    mes_total = fecha.month - 1 + meses
+    anio = fecha.year + mes_total // 12
+    mes = mes_total % 12 + 1
+    ultimo_dia_mes = calendar.monthrange(anio, mes)[1]
+    return date(anio, mes, min(fecha.day, ultimo_dia_mes))
+
+
+def _calcular_vencimiento(tipo_plan: str, fecha_pago: date) -> date:
+    if tipo_plan in DURACION_MESES:
+        return _sumar_meses(fecha_pago, DURACION_MESES[tipo_plan])
+    return fecha_pago + timedelta(days=30)
+
+
+def _actualizar_vencimiento(plan_key: str, pago_key: str, venc_key: str) -> None:
+    tipo_plan = st.session_state.get(plan_key)
+    fecha_pago = st.session_state.get(pago_key)
+    if tipo_plan and fecha_pago:
+        st.session_state[venc_key] = _calcular_vencimiento(tipo_plan, fecha_pago)
 
 
 def render() -> None:
@@ -147,25 +175,51 @@ def _render_form_suscripcion(cliente: dict) -> None:
     estado_actual = "Inactivo" if cliente["estado"] == "Inactivo" else "Activo"
     fecha_pago_actual = date.fromisoformat(cliente["fecha_ultimo_pago"]) if cliente["fecha_ultimo_pago"] else date.today()
     fecha_venc_actual = (
-        date.fromisoformat(cliente["fecha_vencimiento"]) if cliente["fecha_vencimiento"] else date.today() + timedelta(days=30)
+        date.fromisoformat(cliente["fecha_vencimiento"])
+        if cliente["fecha_vencimiento"]
+        else _calcular_vencimiento(plan_actual, fecha_pago_actual)
     )
 
-    with st.form(f"suscripcion_form_{cliente_id}"):
-        col1, col2 = st.columns(2)
-        with col1:
-            tipo_plan = st.selectbox("Tipo de plan", PLANES, index=PLANES.index(plan_actual), key=f"plan_{cliente_id}")
-            estado = st.selectbox(
-                "Estado",
-                ["Activo", "Inactivo"],
-                index=["Activo", "Inactivo"].index(estado_actual),
-                key=f"estado_{cliente_id}",
-                help="Si queda 'Inactivo', el cliente verá un aviso de plan caducado al iniciar sesión.",
-            )
-        with col2:
-            fecha_pago = st.date_input("Fecha del último pago", value=fecha_pago_actual, key=f"pago_{cliente_id}")
-            fecha_vencimiento = st.date_input("Fecha de vencimiento", value=fecha_venc_actual, key=f"venc_{cliente_id}")
+    plan_key, pago_key, venc_key = f"plan_{cliente_id}", f"pago_{cliente_id}", f"venc_{cliente_id}"
 
-        guardar = st.form_submit_button("💾 Guardar suscripción", use_container_width=True, type="primary")
+    # Sin st.form: así el cambio de "Tipo de plan" o "Fecha del último pago"
+    # puede recalcular la fecha de vencimiento en vivo (los widgets dentro de
+    # un st.form no disparan on_change hasta que se envía el formulario).
+    col1, col2 = st.columns(2)
+    with col1:
+        tipo_plan = st.selectbox(
+            "Tipo de plan",
+            PLANES,
+            index=PLANES.index(plan_actual),
+            key=plan_key,
+            on_change=_actualizar_vencimiento,
+            args=(plan_key, pago_key, venc_key),
+        )
+        estado = st.selectbox(
+            "Estado",
+            ["Activo", "Inactivo"],
+            index=["Activo", "Inactivo"].index(estado_actual),
+            key=f"estado_{cliente_id}",
+            help="Si queda 'Inactivo', el cliente verá un aviso de plan caducado al iniciar sesión.",
+        )
+    with col2:
+        fecha_pago = st.date_input(
+            "Fecha del último pago",
+            value=fecha_pago_actual,
+            key=pago_key,
+            on_change=_actualizar_vencimiento,
+            args=(plan_key, pago_key, venc_key),
+        )
+        fecha_vencimiento = st.date_input(
+            "Fecha de vencimiento",
+            value=fecha_venc_actual,
+            key=venc_key,
+            help="Se recalcula sola según el plan y la fecha de pago; puedes ajustarla manualmente si lo necesitas.",
+        )
+
+    guardar = st.button(
+        "💾 Guardar suscripción", key=f"guardar_susc_{cliente_id}", use_container_width=True, type="primary"
+    )
 
     if guardar:
         upsert_suscripcion(
