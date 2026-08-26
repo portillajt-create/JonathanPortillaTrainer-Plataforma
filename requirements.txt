@@ -13,3 +13,6 @@ plotly>=5.22.0
 # Se usará en el Paso 5 para el scraping del perfil público de Hevy
 requests>=2.32.0
 beautifulsoup4>=4.12.3
+
+# Descarga en PDF de la ficha de onboarding (lado admin)
+fpdf2>=2.7.9

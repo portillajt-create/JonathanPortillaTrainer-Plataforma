@@ -15,6 +15,7 @@ from datetime import date
 
 import streamlit as st
 
+from utils.pdf_export import generar_pdf_onboarding
 from utils.queries import get_cliente, get_onboarding, update_cliente_hevy_url, upsert_onboarding
 
 NIVELES_EXPERIENCIA = ["Principiante", "Intermedio", "Avanzado"]
@@ -139,6 +140,14 @@ def render_ficha_admin(cliente_id: str) -> None:
     if not datos:
         st.warning("Este cliente todavía no completó su formulario de onboarding.")
         return
+
+    st.download_button(
+        "📄 Descargar resumen en PDF",
+        data=generar_pdf_onboarding(cliente, datos),
+        file_name=f"onboarding_{(cliente.get('nombre_completo') or cliente.get('email') or 'cliente').replace(' ', '_')}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
 
     if (datos.get("patologias") or "").strip() or (datos.get("lesiones") or "").strip():
         st.error(
