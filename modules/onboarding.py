@@ -157,7 +157,7 @@ def render_ficha_admin(cliente_id: str) -> None:
     col4.metric("Nivel", datos.get("nivel_experiencia") or "—")
     col5.metric("Objetivo", datos.get("objetivo_principal") or "—")
     dias_disp = datos.get("disponibilidad_dias")
-    col6.metric("Días/semana", dias_disp if dias_disp is not None else "—")
+    col6.metric("Disponibilidad", f"{dias_disp} días/semana" if dias_disp is not None else "—")
 
     with st.container(border=True):
         st.markdown("##### Historial médico")
