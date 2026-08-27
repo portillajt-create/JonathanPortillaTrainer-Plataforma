@@ -191,11 +191,12 @@ def _selector_cliente() -> str | None:
         return None
 
     opciones = {f"{c['nombre_completo'] or c['email']} — {c['email']}": c["id"] for c in clientes}
-    with st.container(border=True):
-        st.markdown("###### 👤 Cliente seleccionado")
-        seleccion = st.selectbox(
-            "Cliente", list(opciones.keys()), key="selector_cliente_admin", label_visibility="collapsed"
-        )
+    with st.container(key="selector_cliente_wrap"):
+        with st.container(border=True):
+            st.markdown("###### 👤 Cliente seleccionado")
+            seleccion = st.selectbox(
+                "Cliente", list(opciones.keys()), key="selector_cliente_admin", label_visibility="collapsed"
+            )
     return opciones[seleccion]
 
 

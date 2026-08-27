@@ -98,6 +98,13 @@ CSS = """
     font-size: 1.1rem !important;
 }
 
+/* Selector de cliente compartido en las páginas de admin (Ficha del Atleta,
+   Nutrición, Entrenamiento, Progreso): el nombre/correo del cliente elegido
+   se veía chico. El texto vive en el <input> del combobox, no en un <p>. */
+[class*="st-key-selector_cliente_wrap"] [data-testid="stSelectbox"] input {
+    font-size: 1.1rem !important;
+}
+
 /* Título de cada pantalla (st.title, una sola vez por página vía
    _render_titulo en app.py — admin y cliente comparten la misma función,
    así que este detalle queda igual en ambos lados). Mismo degradado que
