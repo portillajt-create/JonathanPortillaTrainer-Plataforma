@@ -89,7 +89,8 @@ def render() -> None:
         dias = cliente.get("dias_restantes")
         dias_txt = f" · {dias} días restantes" if dias is not None else ""
         correo_txt = "" if cliente.get("correo_confirmado") else " · ⏳ Correo sin confirmar"
-        titulo = f"{badge} — {cliente['nombre_completo'] or cliente['email']}{dias_txt}{correo_txt}"
+        nombre = cliente["nombre_completo"] or cliente["email"]
+        titulo = f"**{nombre}** — {badge}{dias_txt}{correo_txt}"
         with st.expander(titulo):
             _render_form_suscripcion(cliente)
 
