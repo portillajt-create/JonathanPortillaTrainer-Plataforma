@@ -20,6 +20,7 @@ from streamlit_option_menu import option_menu
 from modules import admin_clientes, checkin, hevy_integration, nutricion, onboarding, rutinas
 from utils import theme
 from utils.auth import (
+    complete_email_confirmation,
     complete_password_reset,
     current_role,
     is_authenticated,
@@ -99,8 +100,9 @@ def render_auth_screen() -> None:
                     signup_cliente(email_signup, password_signup, nombre)
                     notificar_admin_nuevo_cliente(nombre, email_signup)
                     st.success(
-                        "✅ ¡Cuenta creada con éxito! Ve a la pestaña **'Iniciar sesión'** de arriba "
-                        "y entra con el correo y la contraseña que acabas de registrar."
+                        "✅ ¡Cuenta creada con éxito! Te enviamos un correo de confirmación — "
+                        "ábrelo y da clic en el enlace para activar tu cuenta antes de iniciar sesión "
+                        "(revisa también la carpeta de spam)."
                     )
                 except Exception as exc:
                     st.error(f"No se pudo crear la cuenta: {exc}")
@@ -135,6 +137,30 @@ def render_reset_password_screen(token_hash: str) -> None:
             st.rerun()
         else:
             st.error(st.session_state.get("auth_error") or "El enlace no es válido o ya expiró. Solicita uno nuevo.")
+
+
+# ---------------------------------------------------------------------------
+# Pantalla de confirmación de correo (llega desde el enlace del correo de
+# registro). El enlace apunta a la app con ?token_hash=...&type=signup, igual
+# que el flujo de recuperación de contraseña. Confirma el correo y deja al
+# cliente autenticado de una vez, sin que tenga que volver a escribir su
+# contraseña ni ir manualmente a la pestaña de "Iniciar sesión".
+# ---------------------------------------------------------------------------
+def render_confirmacion_correo_screen(token_hash: str) -> None:
+    col_izq, col_centro, col_der = st.columns([1, 2, 1])
+    with col_centro:
+        st.image(str(LOGIN_HERO), use_container_width=True)
+    st.subheader("Confirmando tu correo…")
+
+    if complete_email_confirmation(token_hash):
+        st.query_params.clear()
+        st.success("✅ ¡Correo confirmado! Entrando...")
+        st.rerun()
+    else:
+        st.error(
+            st.session_state.get("auth_error")
+            or "El enlace no es válido o ya expiró. Intenta registrarte de nuevo."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -288,9 +314,12 @@ def render_cliente_shell() -> None:
 # ---------------------------------------------------------------------------
 # Enrutador principal
 # ---------------------------------------------------------------------------
-_reset_token_hash = st.query_params.get("token_hash")
-if _reset_token_hash and st.query_params.get("type") == "recovery":
-    render_reset_password_screen(_reset_token_hash)
+_token_hash = st.query_params.get("token_hash")
+_token_type = st.query_params.get("type")
+if _token_hash and _token_type == "recovery":
+    render_reset_password_screen(_token_hash)
+elif _token_hash and _token_type == "signup":
+    render_confirmacion_correo_screen(_token_hash)
 elif not is_authenticated():
     render_auth_screen()
 elif current_role() == "admin":

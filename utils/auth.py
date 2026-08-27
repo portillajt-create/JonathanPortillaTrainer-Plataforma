@@ -22,7 +22,10 @@ def login(email: str, password: str) -> bool:
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
     except Exception as exc:  # credenciales inválidas, usuario no confirmado, etc.
-        st.session_state["auth_error"] = str(exc)
+        mensaje = str(exc)
+        if "not confirmed" in mensaje.lower():
+            mensaje = "Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada (y spam)."
+        st.session_state["auth_error"] = mensaje
         return False
 
     if res.user is None or res.session is None:
@@ -67,6 +70,37 @@ def complete_password_reset(token_hash: str, new_password: str) -> bool:
         supabase.auth.update_user({"password": new_password})
     except Exception as exc:
         st.session_state["auth_error"] = str(exc)
+        return False
+
+    _load_perfil(res.user.id)
+    st.session_state["user"] = res.user
+    st.session_state["access_token"] = res.session.access_token
+    st.session_state["refresh_token"] = res.session.refresh_token
+    st.session_state["cliente_id"] = res.user.id
+    return True
+
+
+def complete_email_confirmation(token_hash: str) -> bool:
+    """
+    Verifica el enlace de confirmación de correo del registro y deja al
+    cliente autenticado de una vez. Mismo patrón que complete_password_reset:
+    verify_otp con token_hash en vez del flujo de fragmento de URL por
+    defecto (#access_token=...), que Streamlit no puede leer del lado
+    servidor. Requiere personalizar la plantilla "Confirm signup" en
+    Supabase para que enlace a {{ .SiteURL }}/?token_hash={{ .TokenHash }}
+    &type=signup en vez de {{ .ConfirmationURL }}.
+    """
+    supabase = get_supabase_client()
+    st.session_state.pop("auth_error", None)
+
+    try:
+        res = supabase.auth.verify_otp({"token_hash": token_hash, "type": "signup"})
+    except Exception as exc:
+        st.session_state["auth_error"] = str(exc)
+        return False
+
+    if res.user is None or res.session is None:
+        st.session_state["auth_error"] = "El enlace de confirmación no es válido o ya expiró."
         return False
 
     _load_perfil(res.user.id)
