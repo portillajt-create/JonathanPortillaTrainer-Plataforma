@@ -82,6 +82,7 @@ def complete_password_reset(token_hash: str, new_password: str) -> bool:
 
 def complete_email_confirmation(token_hash: str) -> bool:
     """
+    Confirma el correo del registro a partir del token del enlace.
     Verifica el enlace de confirmación de correo del registro y deja al
     cliente autenticado de una vez. Mismo patrón que complete_password_reset:
     verify_otp con token_hash en vez del flujo de fragmento de URL por
