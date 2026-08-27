@@ -40,11 +40,46 @@ FACTORES_ACTIVIDAD = {
     "Muy activo (entrenos intensos o 2x/día)": 1.9,
 }
 
-NOTA_ADICIONAL_DEFAULT = (
-    "Mantente bien hidratado durante el día. El plan de comidas ofrece 1-2 opciones por categoría — "
-    "elige la que más se ajuste a tu rutina y a lo que tengas disponible. Prioriza alimentos poco "
-    "procesados y respeta los horarios de comida en la medida de lo posible."
-)
+# ml de agua por kg de peso corporal (min, max) según nivel de actividad —
+# referencia estándar de hidratación deportiva, ajustada un poco por tramo.
+HIDRATACION_ML_KG = {
+    "Sedentario (poco o nulo ejercicio)": (30, 33),
+    "Ligero (1-3 días/semana)": (32, 36),
+    "Moderado (3-5 días/semana)": (35, 39),
+    "Activo (6-7 días/semana)": (38, 42),
+    "Muy activo (entrenos intensos o 2x/día)": (40, 45),
+}
+
+def _descripcion_ajuste(ajuste_pct: int) -> str:
+    """'-15' -> 'déficit moderado' · '25' -> 'superávit agresivo' · '0' -> 'mantenimiento calórico'."""
+    if ajuste_pct == 0:
+        return "mantenimiento calórico"
+    tipo = "déficit" if ajuste_pct < 0 else "superávit"
+    intensidad = "agresivo" if abs(ajuste_pct) >= 20 else "moderado"
+    return f"{tipo} {intensidad}"
+
+
+def _rango_hidratacion(peso_kg: float, edad: int, nivel_actividad: str) -> tuple[float, float]:
+    """Litros de agua/día recomendados (min, max) según peso, edad y actividad."""
+    ml_min, ml_max = HIDRATACION_ML_KG.get(nivel_actividad, (32, 36))
+    factor_edad = 0.9 if edad >= 65 else 1.0  # a partir de 65 se ajusta un poco a la baja
+    litros_min = round(peso_kg * ml_min / 1000 * factor_edad, 1)
+    litros_max = round(peso_kg * ml_max / 1000 * factor_edad, 1)
+    return litros_min, litros_max
+
+
+def generar_notas_adicionales(peso_kg: float, edad: int, nivel_actividad: str, ajuste_pct: int) -> str:
+    """Notas adicionales de ejemplo, calculadas a partir de los datos del cliente y del plan armado arriba."""
+    litros_min, litros_max = _rango_hidratacion(peso_kg, edad, nivel_actividad)
+    return (
+        f"- La dieta contempla un {_descripcion_ajuste(ajuste_pct)} según el análisis y el objetivo, lo ideal "
+        "es ir revisando semanalmente las sensaciones y resultados para realizar los ajustes.\n"
+        "- Prioriza alimentos como: carnes magras, verduras, frutas, carbohidratos complejos, etc. Evita "
+        "frituras, salsas o ultraprocesados.\n"
+        f"- Mantente bien hidratado durante el día ({litros_min:.1f}-{litros_max:.1f} litros al día).\n"
+        "- El plan de comidas ofrece 1-2 opciones por categoría — elige la que más se ajuste a tu rutina y a "
+        "lo que tengas disponible."
+    )
 
 
 def render_alertas_nutricion() -> None:
@@ -143,8 +178,15 @@ def render_admin(cliente_id: str) -> None:
     if plan_key not in st.session_state:
         st.session_state[plan_key] = (dieta_actual.get("plan_comidas") if dieta_actual else None) or ""
 
+    notas_key = f"dieta_notas_adicionales_{cliente_id}"
+    if notas_key not in st.session_state:
+        st.session_state[notas_key] = (dieta_actual.get("notas") if dieta_actual else None) or generar_notas_adicionales(
+            peso_kg, edad, nivel_actividad, ajuste_pct
+        )
+
     if st.button("🍽️ Generar ejemplo de dieta con estos macros"):
         st.session_state[plan_key] = generar_ejemplo_dieta(proteinas_g, carbohidratos_g, grasas_g)
+        st.session_state[notas_key] = generar_notas_adicionales(peso_kg, edad, nivel_actividad, ajuste_pct)
         st.rerun()
 
     plan_comidas = st.text_area(
@@ -157,9 +199,6 @@ def render_admin(cliente_id: str) -> None:
         with st.expander("👁️ Vista previa (así lo verá el cliente)"):
             st.markdown(st.session_state[plan_key])
 
-    notas_key = f"dieta_notas_adicionales_{cliente_id}"
-    if notas_key not in st.session_state:
-        st.session_state[notas_key] = (dieta_actual.get("notas") if dieta_actual else None) or NOTA_ADICIONAL_DEFAULT
     notas = st.text_area(
         "Notas adicionales para el cliente (indicaciones generales, timing de comidas, suplementación, etc.)",
         key=notas_key,
