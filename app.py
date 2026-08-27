@@ -96,6 +96,7 @@ def render_auth_screen() -> None:
             elif len(password_signup) < 8:
                 st.warning("La contraseña debe tener al menos 8 caracteres.")
             else:
+                nombre = nombre.strip()
                 try:
                     signup_cliente(email_signup, password_signup, nombre)
                     notificar_admin_nuevo_cliente(nombre, email_signup)
