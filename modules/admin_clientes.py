@@ -84,18 +84,19 @@ def render() -> None:
         st.warning("Ningún cliente coincide con el filtro seleccionado.")
         return
 
-    for cliente in clientes_filtrados:
-        badge = _badge_estado(cliente)
-        dias = cliente.get("dias_restantes")
-        dias_txt = f" · {dias} días restantes" if dias is not None else ""
-        correo_txt = "" if cliente.get("correo_confirmado") else " · ⏳ Correo sin confirmar"
-        # .strip(): un nombre con espacio al final (ej. "Dayana caceres ") rompe el
-        # markdown de negrita — "**texto **" con espacio antes del cierre no se
-        # interpreta como negrita y sale literal con los asteriscos.
-        nombre = (cliente["nombre_completo"] or cliente["email"]).strip()
-        titulo = f"**{nombre}** — {badge}{dias_txt}{correo_txt}"
-        with st.expander(titulo):
-            _render_form_suscripcion(cliente)
+    with st.container(key="lista_clientes"):
+        for cliente in clientes_filtrados:
+            badge = _badge_estado(cliente)
+            dias = cliente.get("dias_restantes")
+            dias_txt = f" · {dias} días restantes" if dias is not None else ""
+            correo_txt = "" if cliente.get("correo_confirmado") else " · ⏳ Correo sin confirmar"
+            # .strip(): un nombre con espacio al final (ej. "Dayana caceres ") rompe el
+            # markdown de negrita — "**texto **" con espacio antes del cierre no se
+            # interpreta como negrita y sale literal con los asteriscos.
+            nombre = (cliente["nombre_completo"] or cliente["email"]).strip()
+            titulo = f"**{nombre}** — {badge}{dias_txt}{correo_txt}"
+            with st.expander(titulo):
+                _render_form_suscripcion(cliente)
 
 
 def _render_metricas(clientes: list[dict]) -> None:

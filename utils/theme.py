@@ -91,6 +91,13 @@ CSS = """
     opacity: 0.35;
 }
 
+/* Título de cada tarjeta de cliente en "Gestión de Clientes": un par de
+   puntos más grande que el resto de la app, para que se lea mejor de
+   un vistazo en la lista. Solo esta lista, no todos los st.expander. */
+[class*="st-key-lista_clientes"] [data-testid="stExpander"] summary p {
+    font-size: 1.1rem !important;
+}
+
 /* Título de cada pantalla (st.title, una sola vez por página vía
    _render_titulo en app.py — admin y cliente comparten la misma función,
    así que este detalle queda igual en ambos lados). Mismo degradado que
