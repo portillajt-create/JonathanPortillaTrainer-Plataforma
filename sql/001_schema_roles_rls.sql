@@ -26,6 +26,7 @@ create table if not exists public.clientes (
     nombre_completo   text not null default '',
     rol               text not null default 'cliente' check (rol in ('admin', 'cliente')),
     hevy_perfil_url   text,                       -- se sincroniza también en onboarding
+    correo_confirmado boolean not null default false,  -- se pone en true vía trigger cuando confirma el correo
     created_at        timestamptz not null default now()
 );
 
@@ -289,6 +290,32 @@ create trigger on_auth_user_created
     for each row execute function public.handle_new_user();
 
 -- =====================================================================
+-- TRIGGER: marca clientes.correo_confirmado = true en el momento en que
+-- Supabase confirma el correo del usuario (auth.users.email_confirmed_at
+-- pasa de null a una fecha). Solo actúa en esa transición específica,
+-- así que no hace nada en el resto de updates que Supabase hace sobre
+-- auth.users (last_sign_in_at, etc.) — mismo patrón que handle_new_user().
+-- =====================================================================
+create or replace function public.sync_correo_confirmado()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if new.email_confirmed_at is not null and old.email_confirmed_at is null then
+        update public.clientes set correo_confirmado = true where id = new.id;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_confirmed on auth.users;
+create trigger on_auth_user_confirmed
+    after update on auth.users
+    for each row execute function public.sync_correo_confirmado();
+
+-- =====================================================================
 -- FUNCIÓN HELPER PARA RLS: obtiene el rol del usuario autenticado.
 -- Es "security definer" para poder leer la tabla "clientes" sin caer en
 -- recursión infinita de políticas RLS al evaluarse a sí misma.
@@ -315,17 +342,23 @@ $$;
 
 -- =====================================================================
 -- TRIGGER DE SEGURIDAD: un cliente nunca puede auto-promoverse a admin
--- ni auto-reactivarse editando su propia fila de "clientes".
+-- ni auto-reactivarse editando su propia fila de "clientes". También
+-- blinda "correo_confirmado" para que no pueda falsear ese badge (aunque
+-- no le daría acceso real, ya que Supabase Auth es quien controla el
+-- login de verdad con auth.users.email_confirmed_at).
 -- (La política RLS ya limita qué filas puede tocar; este trigger blinda
--- la columna "rol" incluso si en el futuro se relaja esa política).
+-- esas columnas incluso si en el futuro se relaja esa política).
 --
 -- La condición "auth.uid() is not null" es clave: solo aplica este blindaje
 -- a peticiones que llegan autenticadas vía PostgREST con el JWT de un
 -- usuario de la app (que es el único camino por el que alguien podría
 -- intentar auto-promoverse). Las ejecuciones desde el SQL Editor de
--- Supabase (o con la service_role key) no tienen auth.uid() y por lo
--- tanto NO quedan bloqueadas; así el bootstrap manual del primer Admin
--- (ver instrucciones al final de este archivo) sí puede cambiar el rol.
+-- Supabase, con la service_role key, o desde el trigger interno
+-- sync_correo_confirmado (disparado por Supabase Auth, sin JWT de usuario)
+-- no tienen auth.uid() y por lo tanto NO quedan bloqueadas; así el
+-- bootstrap manual del primer Admin (ver instrucciones al final de este
+-- archivo) sí puede cambiar el rol, y la confirmación real de correo sí
+-- puede marcar el badge.
 -- =====================================================================
 create or replace function public.prevent_role_self_escalation()
 returns trigger
@@ -336,6 +369,14 @@ as $$
 begin
     if auth.uid() is not null and not public.is_admin() and new.rol is distinct from old.rol then
         new.rol := old.rol;
+    end if;
+    -- correo_confirmado es solo informativo para el admin (el bloqueo real de
+    -- acceso lo hace Supabase Auth con auth.users.email_confirmed_at), pero
+    -- igual se blinda para que un cliente no pueda falsear el badge llamando
+    -- directo a la API; solo el trigger sync_correo_confirmado (o un admin)
+    -- puede cambiarlo.
+    if auth.uid() is not null and not public.is_admin() and new.correo_confirmado is distinct from old.correo_confirmado then
+        new.correo_confirmado := old.correo_confirmado;
     end if;
     return new;
 end;

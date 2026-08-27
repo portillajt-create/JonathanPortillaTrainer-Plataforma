@@ -26,7 +26,7 @@ def admin_eliminar_cliente(cliente_id: str) -> None:
 def list_clientes(rol: str | None = "cliente") -> list[dict[str, Any]]:
     """Lista clientes (por defecto solo rol='cliente') ordenados por nombre."""
     supabase = get_supabase_client()
-    query = supabase.table("clientes").select("id, email, nombre_completo, rol, created_at")
+    query = supabase.table("clientes").select("id, email, nombre_completo, rol, correo_confirmado, created_at")
     if rol:
         query = query.eq("rol", rol)
     resp = query.order("nombre_completo").execute()
@@ -69,6 +69,7 @@ def list_clientes_con_suscripcion() -> list[dict[str, Any]]:
                 "cliente_id": cliente["id"],
                 "nombre_completo": cliente["nombre_completo"],
                 "email": cliente["email"],
+                "correo_confirmado": bool(cliente.get("correo_confirmado")),
                 "tipo_plan": suscripcion.get("tipo_plan"),
                 "estado": suscripcion.get("estado", "Sin suscripción"),
                 "fecha_ultimo_pago": suscripcion.get("fecha_ultimo_pago"),
