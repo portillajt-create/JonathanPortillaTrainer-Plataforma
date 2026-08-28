@@ -1,18 +1,29 @@
+# Versiones fijas (no ">=") a propósito: hallazgo "medio" de la auditoría
+# de seguridad del 2026-08-28 — Streamlit Community Cloud instala este
+# archivo tal cual en cada deploy, así que sin fijar versión, un redeploy
+# podía traer silenciosamente una versión más nueva y no probada de
+# cualquier paquete. Ver también requirements-lock.txt (todas las
+# dependencias transitivas también fijadas, para poder reproducir el
+# entorno exacto en cualquier máquina).
+#
+# Para actualizar una versión: sube el número aquí, prueba en local con
+# `streamlit run app.py`, y solo entonces haz commit/push.
+
 # Paso 1 (obligatorias desde ya)
-streamlit>=1.38
-supabase>=2.7.0
-python-dotenv>=1.0.1
+streamlit==1.62.0
+supabase==2.31.0
+python-dotenv==1.2.3
 
 # Identidad visual: menú lateral con iconos
-streamlit-option-menu>=0.3.13
+streamlit-option-menu==0.4.0
 
 # Se usarán a partir del Paso 3 (macros/dietas) y Paso 5/8 (gráficas de progreso)
-pandas>=2.2.0
-plotly>=5.22.0
+pandas==3.0.5
+plotly==7.0.0
 
 # Se usará en el Paso 5 para el scraping del perfil público de Hevy
-requests>=2.32.0
-beautifulsoup4>=4.12.3
+requests==2.34.2
+beautifulsoup4==4.15.0
 
 # Descarga en PDF de la ficha de onboarding (lado admin)
-fpdf2>=2.7.9
+fpdf2==2.8.8

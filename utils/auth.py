@@ -14,6 +14,28 @@ from utils.session import clear_auth_state
 from utils.supabase_client import get_supabase_client
 
 
+def mensaje_error_auth(exc: Exception, generico: str) -> str:
+    """
+    Traduce los errores más comunes de Supabase Auth a un mensaje en español
+    seguro para pantallas públicas (login/registro/recuperación). Cualquier
+    error no reconocido cae al mensaje genérico en vez de mostrar el texto
+    crudo de la excepción, que podría revelar detalles internos (rutas,
+    nombres de servicio, etc.) a un visitante no autenticado.
+    """
+    mensaje = str(exc).lower()
+    if "not confirmed" in mensaje:
+        return "Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada (y spam)."
+    if "already registered" in mensaje or "already exists" in mensaje:
+        return "Ya existe una cuenta con ese correo. Ve a la pestaña 'Iniciar sesión'."
+    if "invalid" in mensaje and ("email" in mensaje or "format" in mensaje):
+        return "Ese correo no parece válido. Revísalo e intenta de nuevo."
+    if "rate limit" in mensaje or "only request this" in mensaje or "429" in mensaje:
+        return "Hiciste varios intentos seguidos. Espera unos minutos y vuelve a intentar."
+    if "password" in mensaje and ("short" in mensaje or "at least" in mensaje or "weak" in mensaje):
+        return "La contraseña es muy corta o débil. Usa al menos 8 caracteres."
+    return generico
+
+
 def login(email: str, password: str) -> bool:
     """Intenta iniciar sesión. Devuelve True/False y guarda el resultado en session_state."""
     supabase = get_supabase_client()
@@ -22,10 +44,7 @@ def login(email: str, password: str) -> bool:
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
     except Exception as exc:  # credenciales inválidas, usuario no confirmado, etc.
-        mensaje = str(exc)
-        if "not confirmed" in mensaje.lower():
-            mensaje = "Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada (y spam)."
-        st.session_state["auth_error"] = mensaje
+        st.session_state["auth_error"] = mensaje_error_auth(exc, "Correo o contraseña incorrectos.")
         return False
 
     if res.user is None or res.session is None:
@@ -59,7 +78,9 @@ def complete_password_reset(token_hash: str, new_password: str) -> bool:
     try:
         res = supabase.auth.verify_otp({"token_hash": token_hash, "type": "recovery"})
     except Exception as exc:
-        st.session_state["auth_error"] = str(exc)
+        st.session_state["auth_error"] = mensaje_error_auth(
+            exc, "El enlace de recuperación no es válido o ya expiró."
+        )
         return False
 
     if res.user is None or res.session is None:
@@ -69,7 +90,7 @@ def complete_password_reset(token_hash: str, new_password: str) -> bool:
     try:
         supabase.auth.update_user({"password": new_password})
     except Exception as exc:
-        st.session_state["auth_error"] = str(exc)
+        st.session_state["auth_error"] = mensaje_error_auth(exc, "No se pudo actualizar la contraseña.")
         return False
 
     _load_perfil(res.user.id)
@@ -97,7 +118,9 @@ def complete_email_confirmation(token_hash: str) -> bool:
     try:
         res = supabase.auth.verify_otp({"token_hash": token_hash, "type": "signup"})
     except Exception as exc:
-        st.session_state["auth_error"] = str(exc)
+        st.session_state["auth_error"] = mensaje_error_auth(
+            exc, "El enlace de confirmación no es válido o ya expiró."
+        )
         return False
 
     if res.user is None or res.session is None:

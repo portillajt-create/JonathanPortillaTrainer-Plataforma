@@ -1,0 +1,17 @@
+# Escaneo automático de dependencias (hallazgo "medio" de la auditoría de
+# seguridad del 2026-08-28): abre un PR automático cuando una dependencia de
+# Python o de una GitHub Action tiene una versión más nueva (incluye
+# actualizaciones de seguridad). No se auto-mergea nada — cada PR se revisa
+# a mano antes de aceptarlo.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

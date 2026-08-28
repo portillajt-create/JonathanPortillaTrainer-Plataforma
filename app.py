@@ -26,6 +26,7 @@ from utils.auth import (
     is_authenticated,
     login,
     logout,
+    mensaje_error_auth,
     request_password_reset,
     signup_cliente,
 )
@@ -80,7 +81,7 @@ def render_auth_screen() -> None:
                             "restablecer tu contraseña. Revisa tu bandeja de entrada (y spam)."
                         )
                     except Exception as exc:
-                        st.error(f"No se pudo enviar el correo: {exc}")
+                        st.error(mensaje_error_auth(exc, "No se pudo enviar el correo. Intenta de nuevo en unos minutos."))
 
     with tab_signup:
         st.caption("Regístrate aquí si tu entrenador te compartió el enlace de esta plataforma.")
@@ -89,6 +90,14 @@ def render_auth_screen() -> None:
             email_signup = st.text_input("Correo electrónico", key="signup_email")
             password_signup = st.text_input("Contraseña", type="password", key="signup_password")
             submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True, type="primary")
+
+        with st.expander("🔒 Privacidad de tus datos"):
+            st.caption(
+                "Para darte seguimiento, tu entrenador guarda la información que le compartas aquí y en tu "
+                "ficha de onboarding (datos personales, historial médico, hábitos, entrenamiento y nutrición). "
+                "Esa información solo la ve él — nunca se comparte con terceros ni se usa para otro fin. "
+                "Puedes pedirle en cualquier momento que elimine tu cuenta y todos tus datos."
+            )
 
         if submitted_signup:
             if not nombre.strip() or not email_signup.strip():
@@ -106,7 +115,7 @@ def render_auth_screen() -> None:
                         "(revisa también la carpeta de spam)."
                     )
                 except Exception as exc:
-                    st.error(f"No se pudo crear la cuenta: {exc}")
+                    st.error(mensaje_error_auth(exc, "No se pudo crear la cuenta. Intenta de nuevo en unos minutos."))
 
 
 # ---------------------------------------------------------------------------

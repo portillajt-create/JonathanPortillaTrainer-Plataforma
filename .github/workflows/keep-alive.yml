@@ -21,7 +21,7 @@ jobs:
           node-version: "20"
       - name: Instalar Playwright + Chromium
         run: |
-          npm install playwright
+          npm install playwright@1.62.1
           npx playwright install --with-deps chromium
       - name: Visitar la app con navegador real
         run: node .github/scripts/keep_alive.js
