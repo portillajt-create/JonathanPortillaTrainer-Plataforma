@@ -32,7 +32,8 @@ from typing import Any
 import streamlit as st
 
 from utils.auth import current_cliente_id
-from utils.notificaciones import crear_notificacion
+from utils.formato import escapar_markdown
+from utils.notificaciones import crear_notificacion, crear_notificacion_sistema
 from utils.queries import (
     descartar_alerta,
     get_checkin_semana,
@@ -134,7 +135,7 @@ def render_alertas_deload() -> None:
         return
 
     for cliente in alertas:
-        nombre = cliente["nombre_completo"] or cliente["email"]
+        nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
         col1, col2 = st.columns([4, 1])
         with col1:
             st.warning(
@@ -188,7 +189,7 @@ def render_alertas_adherencia_dieta() -> None:
         return
 
     for cliente in alertas:
-        nombre = cliente["nombre_completo"] or cliente["email"]
+        nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
         col1, col2 = st.columns([4, 1])
         with col1:
             st.warning(
@@ -229,7 +230,12 @@ def _generar_notificacion_checkin_faltante(cliente_id: str) -> None:
     if ya_avisado:
         return
 
-    crear_notificacion(
+    # crear_notificacion_sistema (no crear_notificacion): esta alerta la dispara
+    # la sesión del propio CLIENTE, y la policy de INSERT de "notificaciones"
+    # exige ser admin. Sin esa vía el registro se rechazaba siempre y, como el
+    # correo sale antes del insert, el cliente recibía el mismo correo en cada
+    # visita a esta pantalla.
+    crear_notificacion_sistema(
         cliente_id,
         tipo="checkin_faltante",
         titulo="Check-in semanal pendiente",
@@ -238,7 +244,6 @@ def _generar_notificacion_checkin_faltante(cliente_id: str) -> None:
             f"{(semana_pasada + timedelta(days=6)).isoformat()}. Complétalo en 'Check-in Semanal' "
             "para que tu entrenador pueda dar seguimiento a tu progreso."
         ),
-        creado_por=None,
     )
 
 

@@ -40,6 +40,35 @@ def crear_notificacion(cliente_id: str, tipo: str, titulo: str, mensaje: str, cr
     ).execute()
 
 
+def crear_notificacion_sistema(cliente_id: str, tipo: str, titulo: str, mensaje: str) -> None:
+    """
+    Registra una alerta AUTOMÁTICA para el propio cliente que está usando la
+    app (hoy solo "checkin_faltante"), a diferencia de crear_notificacion(),
+    que es para avisos que manda el admin.
+
+    Va por la función SQL "crear_notificacion_sistema" porque la policy de
+    INSERT de "notificaciones" exige ser admin, y esta alerta la dispara la
+    sesión del propio cliente. Ver sql/001_schema_roles_rls.sql.
+
+    Todo el bloque va en try/except a propósito: es un aviso de conveniencia,
+    así que si algo falla (red, RLS, SMTP) NO debe romper la pantalla de
+    notificaciones del cliente. Se registra primero el correo enviado o no,
+    y el insert va después con esa bandera.
+    """
+    try:
+        cliente = get_cliente(cliente_id)
+        destinatario = cliente.get("email") if cliente else None
+        email_enviado = _enviar_email(destinatario, titulo, mensaje, mostrar_error=False) if destinatario else False
+
+        supabase = get_supabase_client()
+        supabase.rpc(
+            "crear_notificacion_sistema",
+            {"p_tipo": tipo, "p_titulo": titulo, "p_mensaje": mensaje, "p_email_enviado": email_enviado},
+        ).execute()
+    except Exception:
+        pass
+
+
 def notificar_admin_nuevo_cliente(nombre_completo: str, email: str) -> None:
     """
     Avisa por correo al entrenador cuando un cliente nuevo se autorregistra.

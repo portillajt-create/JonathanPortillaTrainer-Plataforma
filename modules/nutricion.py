@@ -26,7 +26,7 @@ from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
-from utils.formato import formatear_fecha_hora
+from utils.formato import escapar_markdown, formatear_fecha_hora
 from utils.plan_alimentario import generar_ejemplo_dieta
 from utils.queries import get_dieta_activa, get_onboarding, guardar_dieta
 
@@ -172,7 +172,10 @@ def render_admin(cliente_id: str) -> None:
 
     alergias = onboarding_cliente.get("alergias_alimentarias")
     if alergias:
-        st.warning(f"⚠️ Este cliente reportó alergias/intolerancias: **{alergias}**. Revisa el ejemplo antes de guardarlo.")
+        st.warning(
+            f"⚠️ Este cliente reportó alergias/intolerancias: **{escapar_markdown(alergias)}**. "
+            "Revisa el ejemplo antes de guardarlo."
+        )
 
     plan_key = f"dieta_plan_comidas_{cliente_id}"
     if plan_key not in st.session_state:

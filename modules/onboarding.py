@@ -15,6 +15,7 @@ from datetime import date
 
 import streamlit as st
 
+from utils.formato import escapar_markdown, url_hevy_valida
 from utils.pdf_export import generar_pdf_onboarding
 from utils.queries import get_cliente, get_onboarding, update_cliente_hevy_url, upsert_onboarding
 
@@ -157,7 +158,7 @@ def render_ficha_admin(cliente_id: str) -> None:
         st.error("No se encontró el cliente seleccionado.")
         return
 
-    st.markdown(f"### {cliente.get('nombre_completo') or cliente.get('email')}")
+    st.markdown(f"### {escapar_markdown(cliente.get('nombre_completo') or cliente.get('email'))}")
     st.caption(cliente.get("email"))
 
     datos = get_onboarding(cliente_id)
@@ -187,15 +188,15 @@ def render_ficha_admin(cliente_id: str) -> None:
         st.markdown("##### Historial médico")
         _campo_alerta("Patologías", datos.get("patologias"))
         _campo_alerta("Lesiones", datos.get("lesiones"))
-        st.write(f"• **Medicamentos:** {datos.get('medicamentos') or '—'}")
+        st.write(f"• **Medicamentos:** {escapar_markdown(datos.get('medicamentos'))}")
 
     with st.container(border=True):
         st.markdown("##### Datos personales")
         col7, col8 = st.columns(2)
         col7.write(f"• **Fecha de nacimiento:** {datos.get('fecha_nacimiento') or '—'}")
         col7.write(f"• **Sexo:** {datos.get('sexo') or '—'}")
-        col7.write(f"• **Ocupación:** {datos.get('ocupacion') or '—'}")
-        col8.write(f"• **Ciudad/País:** {datos.get('ciudad_pais') or '—'}")
+        col7.write(f"• **Ocupación:** {escapar_markdown(datos.get('ocupacion'))}")
+        col8.write(f"• **Ciudad/País:** {escapar_markdown(datos.get('ciudad_pais'))}")
 
     with st.container(border=True):
         st.markdown("##### Hábitos")
@@ -203,16 +204,23 @@ def render_ficha_admin(cliente_id: str) -> None:
         col9.write(f"• **Sueño promedio:** {datos.get('horas_sueno_promedio') or '—'} h")
         col10.write(f"• **Estrés habitual:** {datos.get('nivel_estres_habitual') or '—'}/10")
         col11.write(f"• **Comidas/día:** {datos.get('comidas_dia') or '—'}")
-        st.write(f"• **Alergias alimentarias:** {datos.get('alergias_alimentarias') or '—'}")
-        st.write(f"• **Equipamiento disponible:** {datos.get('equipamiento') or '—'}")
+        st.write(f"• **Alergias alimentarias:** {escapar_markdown(datos.get('alergias_alimentarias'))}")
+        st.write(f"• **Equipamiento disponible:** {escapar_markdown(datos.get('equipamiento'))}")
 
     if datos.get("hevy_perfil_url"):
-        st.markdown(f"• **Perfil Hevy:** [{datos['hevy_perfil_url']}]({datos['hevy_perfil_url']})")
+        # Solo se vuelve enlace clicable si de verdad apunta a hevy.com; cualquier
+        # otra cosa se muestra como texto plano para no convertir el panel del
+        # entrenador en un lanzador de enlaces que puso el propio cliente.
+        url_segura = url_hevy_valida(datos["hevy_perfil_url"])
+        if url_segura:
+            st.markdown(f"• **Perfil Hevy:** [{escapar_markdown(url_segura)}]({url_segura})")
+        else:
+            st.write(f"• **Perfil Hevy (enlace no reconocido):** {escapar_markdown(datos['hevy_perfil_url'])}")
 
     if (datos.get("notas_adicionales") or "").strip():
         with st.container(border=True):
             st.markdown("##### Notas adicionales del asesorado")
-            st.write(datos["notas_adicionales"])
+            st.write(escapar_markdown(datos["notas_adicionales"]))
 
     st.divider()
     st.download_button(
@@ -235,6 +243,9 @@ def _calcular_edad(fecha_nacimiento: str | None) -> int | None:
 
 def _campo_alerta(etiqueta: str, valor: str | None) -> None:
     if valor and valor.strip():
-        st.markdown(f":red[• **{etiqueta}:** {valor}]")
+        # escapar_markdown también protege el ":red[...]" de Streamlit: un "]"
+        # sin escapar en el texto del cliente cerraría el bloque de color antes
+        # de tiempo y dejaría inyectar formato fuera de él.
+        st.markdown(f":red[• **{etiqueta}:** {escapar_markdown(valor)}]")
     else:
         st.write(f"• **{etiqueta}:** Ninguna reportada")

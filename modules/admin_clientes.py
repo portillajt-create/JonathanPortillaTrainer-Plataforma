@@ -23,6 +23,7 @@ from datetime import date, timedelta
 import streamlit as st
 
 from utils.auth import current_cliente_id
+from utils.formato import escapar_markdown
 from utils.notificaciones import crear_notificacion
 from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion, upsert_suscripcion
 
@@ -93,7 +94,10 @@ def render() -> None:
             # .strip(): un nombre con espacio al final (ej. "Dayana caceres ") rompe el
             # markdown de negrita — "**texto **" con espacio antes del cierre no se
             # interpreta como negrita y sale literal con los asteriscos.
-            nombre = (cliente["nombre_completo"] or cliente["email"]).strip()
+            # escapar_markdown: el nombre lo escribe el propio cliente en el
+            # registro (antes incluso de confirmar su correo) y aquí se renderiza
+            # como markdown; sin escapar podría inyectar enlaces en esta lista.
+            nombre = escapar_markdown((cliente["nombre_completo"] or cliente["email"]).strip())
             titulo = f"**{nombre}** — {badge}{dias_txt}{correo_txt}"
             with st.expander(titulo):
                 _render_form_suscripcion(cliente)
@@ -121,7 +125,7 @@ def _render_alertas_vencimiento(clientes: list[dict]) -> None:
     st.markdown("##### 🔔 Vencimientos de suscripción")
     for cliente in alertas:
         dias = cliente.get("dias_restantes")
-        nombre = cliente["nombre_completo"] or cliente["email"]
+        nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
         col1, col2 = st.columns([4, 1])
         with col1:
             if cliente["vencida"]:
@@ -240,7 +244,7 @@ def _render_form_suscripcion(cliente: dict) -> None:
 
     st.divider()
     if st.button("🗑️ Eliminar cliente", key=f"eliminar_{cliente_id}"):
-        _confirmar_eliminar_cliente(cliente_id, cliente["nombre_completo"] or cliente["email"])
+        _confirmar_eliminar_cliente(cliente_id, escapar_markdown(cliente["nombre_completo"] or cliente["email"]))
 
 
 @st.dialog("Eliminar cliente")

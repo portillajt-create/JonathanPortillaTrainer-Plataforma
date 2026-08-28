@@ -469,6 +469,49 @@ $$;
 grant execute on function public.admin_delete_cliente(uuid) to authenticated;
 
 -- =====================================================================
+-- FUNCIÓN: crear_notificacion_sistema — permite que una alerta AUTOMÁTICA
+-- (no enviada por el admin) quede registrada en "notificaciones".
+--
+-- Por qué hace falta: la policy notificaciones_admin_insert exige is_admin()
+-- para insertar, pero la alerta de "check-in semanal faltante" la evalúa y
+-- dispara la propia app mientras el CLIENTE mira sus notificaciones. Sin
+-- esta función el insert se rechazaba siempre y, como el correo se envía
+-- antes del insert, el aviso nunca quedaba registrado: cada visita del
+-- cliente volvía a enviarle el mismo correo, sin límite.
+--
+-- Es "security definer" (mismo patrón que admin_delete_cliente) pero muy
+-- acotada: el cliente solo puede crearse notificaciones A SÍ MISMO
+-- (cliente_id := auth.uid(), no es un parámetro) y solo del tipo
+-- 'checkin_faltante'. No puede escribirle a otro cliente ni fabricar
+-- avisos que aparenten venir del entrenador.
+-- =====================================================================
+create or replace function public.crear_notificacion_sistema(
+    p_tipo          text,
+    p_titulo        text,
+    p_mensaje       text,
+    p_email_enviado boolean default false
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if auth.uid() is null then
+        raise exception 'No autenticado';
+    end if;
+    if p_tipo <> 'checkin_faltante' then
+        raise exception 'Tipo de notificación no permitido para el sistema: %', p_tipo;
+    end if;
+
+    insert into public.notificaciones (cliente_id, tipo, titulo, mensaje, email_enviado, creado_por)
+    values (auth.uid(), p_tipo, p_titulo, p_mensaje, coalesce(p_email_enviado, false), null);
+end;
+$$;
+
+grant execute on function public.crear_notificacion_sistema(text, text, text, boolean) to authenticated;
+
+-- =====================================================================
 -- ROW LEVEL SECURITY (RLS)
 -- Regla general en todas las tablas:
 --   - Admin (is_admin() = true): acceso total (select/insert/update/delete)
