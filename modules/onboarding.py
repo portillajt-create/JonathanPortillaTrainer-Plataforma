@@ -97,41 +97,52 @@ def render_formulario_cliente(cliente_id: str) -> None:
         )
 
         st.markdown("##### Notas adicionales")
+        st.caption("Cuéntale a tu entrenador cómo entrenas y te alimentas actualmente")
         notas_adicionales = st.text_area(
-            "¿Algo más que tu entrenador debería saber? (opcional)",
+            "Notas adicionales",
             value=datos.get("notas_adicionales") or "",
-            placeholder="Cuéntanos lo que quieras: contexto, preferencias, restricciones, dudas, etc.",
+            placeholder=(
+                "Sobre tu entrenamiento: ¿tienes una rutina fija o vas cambiando de ejercicios? "
+                "¿llevas algún tipo de registro o seguimiento de tus entrenamientos?\n"
+                "Sobre tu alimentación: ¿sigues alguna dieta actualmente? ¿tienes alguna restricción "
+                "o preferencia alimentaria?\n"
+                "Agrega cualquier otro detalle que consideres importante."
+            ),
+            label_visibility="collapsed",
         )
 
         submitted = st.form_submit_button("💾 Guardar mi información", use_container_width=True, type="primary")
 
     if submitted:
-        upsert_onboarding(
-            cliente_id,
-            fecha_nacimiento=fecha_nacimiento.isoformat(),
-            sexo=sexo,
-            altura_cm=altura_cm,
-            peso_kg=peso_kg,
-            ocupacion=ocupacion,
-            ciudad_pais=ciudad_pais,
-            patologias=patologias,
-            lesiones=lesiones,
-            medicamentos=medicamentos,
-            nivel_experiencia=nivel_experiencia,
-            disponibilidad_dias=disponibilidad_dias,
-            equipamiento=equipamiento,
-            horas_sueno_promedio=horas_sueno_promedio,
-            nivel_estres_habitual=nivel_estres_habitual,
-            comidas_dia=comidas_dia,
-            alergias_alimentarias=alergias_alimentarias,
-            objetivo_principal=objetivo_principal,
-            hevy_perfil_url=hevy_perfil_url or None,
-            notas_adicionales=notas_adicionales,
-        )
-        if hevy_perfil_url:
-            update_cliente_hevy_url(cliente_id, hevy_perfil_url)
-        st.success("¡Información guardada correctamente!")
-        st.rerun()
+        if not notas_adicionales.strip():
+            st.warning("Completa las notas adicionales antes de guardar.")
+        else:
+            upsert_onboarding(
+                cliente_id,
+                fecha_nacimiento=fecha_nacimiento.isoformat(),
+                sexo=sexo,
+                altura_cm=altura_cm,
+                peso_kg=peso_kg,
+                ocupacion=ocupacion,
+                ciudad_pais=ciudad_pais,
+                patologias=patologias,
+                lesiones=lesiones,
+                medicamentos=medicamentos,
+                nivel_experiencia=nivel_experiencia,
+                disponibilidad_dias=disponibilidad_dias,
+                equipamiento=equipamiento,
+                horas_sueno_promedio=horas_sueno_promedio,
+                nivel_estres_habitual=nivel_estres_habitual,
+                comidas_dia=comidas_dia,
+                alergias_alimentarias=alergias_alimentarias,
+                objetivo_principal=objetivo_principal,
+                hevy_perfil_url=hevy_perfil_url or None,
+                notas_adicionales=notas_adicionales,
+            )
+            if hevy_perfil_url:
+                update_cliente_hevy_url(cliente_id, hevy_perfil_url)
+            st.success("¡Información guardada correctamente!")
+            st.rerun()
 
 
 def render_ficha_admin(cliente_id: str) -> None:
