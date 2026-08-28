@@ -96,6 +96,13 @@ def render_formulario_cliente(cliente_id: str) -> None:
             placeholder="https://hevy.com/user/tu_usuario",
         )
 
+        st.markdown("##### Notas adicionales")
+        notas_adicionales = st.text_area(
+            "¿Algo más que tu entrenador debería saber? (opcional)",
+            value=datos.get("notas_adicionales") or "",
+            placeholder="Cuéntanos lo que quieras: contexto, preferencias, restricciones, dudas, etc.",
+        )
+
         submitted = st.form_submit_button("💾 Guardar mi información", use_container_width=True, type="primary")
 
     if submitted:
@@ -119,6 +126,7 @@ def render_formulario_cliente(cliente_id: str) -> None:
             alergias_alimentarias=alergias_alimentarias,
             objetivo_principal=objetivo_principal,
             hevy_perfil_url=hevy_perfil_url or None,
+            notas_adicionales=notas_adicionales,
         )
         if hevy_perfil_url:
             update_cliente_hevy_url(cliente_id, hevy_perfil_url)
@@ -189,6 +197,11 @@ def render_ficha_admin(cliente_id: str) -> None:
 
     if datos.get("hevy_perfil_url"):
         st.markdown(f"• **Perfil Hevy:** [{datos['hevy_perfil_url']}]({datos['hevy_perfil_url']})")
+
+    if (datos.get("notas_adicionales") or "").strip():
+        with st.container(border=True):
+            st.markdown("##### Notas adicionales del cliente")
+            st.write(datos["notas_adicionales"])
 
     st.divider()
     st.download_button(

@@ -92,6 +92,7 @@ create table if not exists public.onboarding (
     objetivo_principal      text check (objetivo_principal in
                                 ('Fuerza', 'Hipertrofia', 'Pérdida de grasa', 'Recomposición', 'Salud general')),
     hevy_perfil_url         text,       -- https://hevy.com/user/USERNAME
+    notas_adicionales       text,       -- texto libre del cliente, cualquier cosa que quiera contar
     fecha_registro          timestamptz not null default now()
 );
 
