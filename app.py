@@ -91,7 +91,7 @@ def render_auth_screen() -> None:
             password_signup = st.text_input("Contraseña", type="password", key="signup_password")
             submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True, type="primary")
 
-        with st.expander("🔒 Aviso de tratamiento de datos personales"):
+        with st.expander("Aviso de tratamiento de datos personales 🔒"):
             st.caption(
                 "Jonathan Portilla, como responsable del tratamiento, recolecta y conserva los datos "
                 "personales que usted suministra en este registro y en su ficha de onboarding —incluyendo "
@@ -103,7 +103,7 @@ def render_auth_screen() -> None:
                 "personales en cualquier momento, dirigiéndose directamente a su entrenador."
             )
 
-        with st.expander("📄 Términos y condiciones"):
+        with st.expander("Términos y condiciones 📄"):
             st.caption(
                 "**1. Objeto del servicio.** Esta plataforma presta un servicio de asesoría personalizada de "
                 "entrenamiento físico y nutrición, prestado por Jonathan Portilla ('el entrenador'), e "
