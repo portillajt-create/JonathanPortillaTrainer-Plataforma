@@ -211,7 +211,7 @@ def render_ficha_admin(cliente_id: str) -> None:
 
     if (datos.get("notas_adicionales") or "").strip():
         with st.container(border=True):
-            st.markdown("##### Notas adicionales del cliente")
+            st.markdown("##### Notas adicionales del asesorado")
             st.write(datos["notas_adicionales"])
 
     st.divider()

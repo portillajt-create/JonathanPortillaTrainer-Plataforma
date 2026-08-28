@@ -140,7 +140,7 @@ def generar_pdf_onboarding(cliente: dict[str, Any], datos: dict[str, Any]) -> by
         _campo(pdf, "Perfil público", datos.get("hevy_perfil_url"))
 
     if (datos.get("notas_adicionales") or "").strip():
-        _seccion(pdf, "Notas adicionales del cliente")
+        _seccion(pdf, "Notas adicionales del asesorado")
         pdf.set_font("Helvetica", "", 10)
         pdf.multi_cell(0, 6, _safe(datos["notas_adicionales"]), new_x="LMARGIN", new_y="NEXT")
 
