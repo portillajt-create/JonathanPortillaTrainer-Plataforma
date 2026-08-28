@@ -45,16 +45,23 @@ def notificar_admin_nuevo_cliente(nombre_completo: str, email: str) -> None:
     Avisa por correo al entrenador cuando un cliente nuevo se autorregistra.
     No pasa por la tabla "notificaciones" (esa es solo para avisos admin -> cliente);
     esto es un correo directo, sin registro in-app ni pantalla que lo muestre.
+
+    mostrar_error=False: este envío se dispara desde la pantalla PÚBLICA de
+    registro (cualquier visitante anónimo la alcanza). Si falla, no debe
+    mostrarle a ese visitante el detalle crudo del error SMTP — eso filtraría
+    el correo del entrenador y detalles internos de su configuración de correo.
+    Es un aviso "mejor esfuerzo": el registro ya se completó igual.
     """
     _enviar_email(
         ADMIN_NOTIFICATION_EMAIL,
         "Nuevo cliente registrado en tu plataforma",
         f"{nombre_completo or 'Un nuevo usuario'} ({email}) acaba de crear una cuenta en "
         "Jonathan Portilla Trainer. Actívale la suscripción desde 'Gestión de Clientes' cuando quieras.",
+        mostrar_error=False,
     )
 
 
-def _enviar_email(destinatario: str, titulo: str, mensaje: str) -> bool:
+def _enviar_email(destinatario: str, titulo: str, mensaje: str, mostrar_error: bool = True) -> bool:
     if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and destinatario):
         return False
 
@@ -70,5 +77,6 @@ def _enviar_email(destinatario: str, titulo: str, mensaje: str) -> bool:
             server.send_message(email_msg)
         return True
     except Exception as exc:
-        st.warning(f"El correo a {destinatario} no pudo enviarse: {exc}")
+        if mostrar_error:
+            st.warning(f"El correo a {destinatario} no pudo enviarse: {exc}")
         return False

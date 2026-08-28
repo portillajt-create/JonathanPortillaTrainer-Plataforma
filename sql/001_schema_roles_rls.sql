@@ -66,6 +66,13 @@ select
 from public.suscripciones s
 join public.clientes c on c.id = s.cliente_id;
 
+-- security_invoker: sin esto, Postgres ejecuta la vista con los privilegios
+-- de quien la CREÓ (el rol del SQL Editor de Supabase, que se salta RLS),
+-- no de quien la consulta — exponiendo la fila de TODOS los clientes a
+-- cualquiera que la llame directo por la API REST. Con esto, la vista
+-- aplica las políticas RLS de "suscripciones" según el usuario real.
+alter view public.vista_suscripciones set (security_invoker = true);
+
 -- =====================================================================
 -- 3. TABLA: onboarding
 --    Formulario de anamnesis inicial (una vez por cliente).
@@ -346,7 +353,11 @@ $$;
 -- ni auto-reactivarse editando su propia fila de "clientes". También
 -- blinda "correo_confirmado" para que no pueda falsear ese badge (aunque
 -- no le daría acceso real, ya que Supabase Auth es quien controla el
--- login de verdad con auth.users.email_confirmed_at).
+-- login de verdad con auth.users.email_confirmed_at), y blinda "email" /
+-- "nombre_completo" para que no pueda reescribirlos llamando directo a la
+-- API (la app nunca expone eso en su UI post-registro; si un cliente lo
+-- cambiara ahí, desviaría sus propias notificaciones a un correo
+-- arbitrario y falsearía lo que ve el admin en "Gestión de Clientes").
 -- (La política RLS ya limita qué filas puede tocar; este trigger blinda
 -- esas columnas incluso si en el futuro se relaja esa política).
 --
@@ -378,6 +389,12 @@ begin
     -- puede cambiarlo.
     if auth.uid() is not null and not public.is_admin() and new.correo_confirmado is distinct from old.correo_confirmado then
         new.correo_confirmado := old.correo_confirmado;
+    end if;
+    if auth.uid() is not null and not public.is_admin() and new.email is distinct from old.email then
+        new.email := old.email;
+    end if;
+    if auth.uid() is not null and not public.is_admin() and new.nombre_completo is distinct from old.nombre_completo then
+        new.nombre_completo := old.nombre_completo;
     end if;
     return new;
 end;
