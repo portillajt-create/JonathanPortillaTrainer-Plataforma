@@ -35,6 +35,7 @@ from utils import theme
 from utils.auth import current_cliente_id
 from utils.formato import formatear_fecha_hora
 from utils.notificaciones import crear_notificacion
+from utils.plan_entrenamiento import generar_ejemplo_rutina
 from utils.queries import get_rutina_activa, guardar_rutina
 
 DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
@@ -119,7 +120,34 @@ def render_admin(cliente_id: str) -> None:
     descripcion = st.text_area(
         "Descripción / objetivo de este bloque de entrenamiento",
         value=(rutina_actual.get("descripcion") if rutina_actual else None) or "",
+        placeholder=(
+            "Ej: Full body 3 días, ejercicios libres o con mancuerna en casa. "
+            "Detecto automáticamente: idioma, días, si es en casa o gimnasio, y el tipo de "
+            "split (Full Body, Upper/Lower, Push/Pull/Legs, Weider, Arnold, o una combinación "
+            "de dos)."
+        ),
     )
+
+    if st.button("🤖 Generar ejemplo de rutina con esta descripción"):
+        if not descripcion.strip():
+            st.warning("Escribe algo en la descripción primero (ej. días, split, si es en casa o gimnasio).")
+        else:
+            resultado = generar_ejemplo_rutina(nombre_rutina, descripcion)
+            st.session_state[bloques_key] = [
+                {**bloque, "_id": str(uuid.uuid4())} for bloque in resultado.bloques
+            ]
+            for dia in DIAS:
+                st.session_state.pop(f"rutina_etiqueta_{cliente_id}_{dia}", None)
+            st.session_state[f"rutina_generada_resumen_{cliente_id}"] = resultado.resumen
+            st.rerun()
+
+    resumen_generado = st.session_state.pop(f"rutina_generada_resumen_{cliente_id}", None)
+    if resumen_generado:
+        st.info(
+            f"🔎 Detecté: **{resumen_generado}**. Es una interpretación por palabras clave, no "
+            "inteligencia artificial — revisa los ejercicios abajo y ajusta lo que haga falta "
+            "antes de guardar."
+        )
 
     st.markdown("##### Ejercicios")
     bloques: list[dict[str, Any]] = st.session_state[bloques_key]
