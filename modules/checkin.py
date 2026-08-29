@@ -32,7 +32,7 @@ from typing import Any
 import streamlit as st
 
 from utils.auth import current_cliente_id
-from utils.formato import escapar_markdown
+from utils.formato import escapar_markdown, fecha_bogota, hoy_bogota
 from utils.notificaciones import crear_notificacion, crear_notificacion_sistema
 from utils.queries import (
     descartar_alerta,
@@ -52,10 +52,66 @@ UMBRAL_ESTRES_ALTO = 8
 UMBRAL_SUENO_BAJO = 4
 UMBRAL_ADHERENCIA_DIETA_BAJA = 5
 
+# =============================================================================
+# MODELO DE SEMANAS DEL CHECK-IN
+#
+# "semana_fecha" identifica la semana que el check-in REPORTA (su lunes), no
+# la semana en que se llenó el formulario. Es la diferencia clave: un cliente
+# que entra el lunes no puede calificar una semana que apenas empieza — lo que
+# reporta es cómo le fue la semana que acaba de cerrar.
+#
+# Cada semana queda abierta para reportarse durante los 7 días siguientes:
+#   - Lunes a domingo de la semana W+1 -> se reporta la semana W ("semana pasada")
+#   - Desde el jueves de W+1 -> también se habilita reportar W+1 en curso, para
+#     quien ya sabe cómo le fue y prefiere no esperar al lunes.
+# Al llegar el lunes siguiente la ventana se cierra sola y esa semana ya no
+# se puede reportar.
+# =============================================================================
 
-def _inicio_semana_actual() -> date:
-    hoy = date.today()
-    return hoy - timedelta(days=hoy.weekday())
+# Arranque del seguimiento: los clientes registrados antes de esta fecha eran
+# cuentas de prueba que todavía no habían empezado su plan, así que no se les
+# reclama ningún check-in anterior. La primera semana reportable es la del
+# 31/08/2026, y el primer recordatorio posible cae el lunes 07/09/2026.
+SEMANA_INICIO_CHECKINS = date(2026, 8, 31)
+
+# Día de la semana (lunes=0) desde el que se habilita reportar la semana en curso.
+DIA_APERTURA_SEMANA_EN_CURSO = 3  # jueves
+
+MESES_ABREV = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+
+def _lunes_de(fecha: date) -> date:
+    return fecha - timedelta(days=fecha.weekday())
+
+
+def _lunes_semana_en_curso() -> date:
+    return _lunes_de(hoy_bogota())
+
+
+def semana_a_reportar() -> date | None:
+    """
+    Lunes de la semana cerrada que el cliente debería reportar ahora mismo
+    (la inmediatamente anterior). None si todavía no entra en el periodo de
+    seguimiento — es lo que evita reclamar semanas previas al arranque.
+    """
+    lunes = _lunes_semana_en_curso() - timedelta(days=7)
+    return lunes if lunes >= SEMANA_INICIO_CHECKINS else None
+
+
+def semana_en_curso_reportable() -> date | None:
+    """Lunes de la semana en curso, solo si ya es jueves o después."""
+    lunes = _lunes_semana_en_curso()
+    if lunes < SEMANA_INICIO_CHECKINS:
+        return None
+    if hoy_bogota().weekday() < DIA_APERTURA_SEMANA_EN_CURSO:
+        return None
+    return lunes
+
+
+def _rango_semana(lunes: date) -> str:
+    """date(2026, 8, 31) -> '31 ago – 6 sep'"""
+    domingo = lunes + timedelta(days=6)
+    return f"{lunes.day} {MESES_ABREV[lunes.month - 1]} – {domingo.day} {MESES_ABREV[domingo.month - 1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -68,41 +124,88 @@ def render_checkin_cliente(cliente_id: str) -> None:
         st.warning("No se encontró tu identificador de cliente.")
         return
 
-    semana_actual = _inicio_semana_actual()
-    checkin_actual = get_checkin_semana(cliente_id, semana_actual) or {}
+    semanas: list[tuple[date, str]] = []
+    pendiente = semana_a_reportar()
+    if pendiente:
+        semanas.append((pendiente, "Semana pasada"))
+    en_curso = semana_en_curso_reportable()
+    if en_curso:
+        semanas.append((en_curso, "Semana en curso"))
 
-    if checkin_actual:
-        st.caption(f"Ya registraste tu check-in de esta semana (desde el {semana_actual.isoformat()}). Puedes actualizarlo.")
-    else:
+    if not semanas:
+        proximo_lunes = _lunes_semana_en_curso() + timedelta(days=7)
         st.info(
-            f"Check-in de la semana que inicia el {semana_actual.isoformat()}. "
-            "Puntúa cada aspecto de 1 (muy bajo) a 10 (muy alto)."
+            "Todavía no hay ninguna semana por reportar. El check-in se llena sobre una semana "
+            f"ya terminada: el primero se habilita el lunes {_rango_semana(proximo_lunes).split(' –')[0]}, "
+            "o desde el jueves si quieres adelantar el de la semana en curso."
         )
+        return
 
-    with st.form("checkin_form"):
+    st.caption(
+        "El check-in se reporta sobre una semana **ya terminada**, para que puedas calificar cómo "
+        "te fue de verdad. Puntúa cada aspecto de 1 (muy bajo) a 10 (muy alto)."
+    )
+
+    if len(semanas) == 1:
+        lunes, etiqueta = semanas[0]
+        _render_form_semana(cliente_id, lunes, etiqueta)
+        return
+
+    tabs = st.tabs([f"{etiqueta} ({_rango_semana(lunes)})" for lunes, etiqueta in semanas])
+    for tab, (lunes, etiqueta) in zip(tabs, semanas):
+        with tab:
+            _render_form_semana(cliente_id, lunes, etiqueta)
+
+
+def _render_form_semana(cliente_id: str, lunes: date, etiqueta: str) -> None:
+    """Formulario de check-in de UNA semana concreta (identificada por su lunes)."""
+    guardado = get_checkin_semana(cliente_id, lunes) or {}
+    rango = _rango_semana(lunes)
+
+    if guardado:
+        st.success(f"✅ Ya reportaste la semana del {rango}. Puedes actualizarla si algo cambió.")
+    elif etiqueta == "Semana pasada":
+        st.warning(f"⏳ Te falta reportar la semana del {rango}. Tienes hasta el domingo para hacerlo.")
+    else:
+        st.info(f"Semana del {rango}, todavía en curso. Puedes adelantarla si ya sabes cómo te fue.")
+
+    sufijo = lunes.isoformat()
+    with st.form(f"checkin_form_{sufijo}"):
         col1, col2 = st.columns(2)
         with col1:
-            adherencia_dieta = st.slider("Adherencia a la dieta", 1, 10, value=checkin_actual.get("adherencia_dieta") or 7)
-            calidad_sueno = st.slider("Calidad del sueño", 1, 10, value=checkin_actual.get("calidad_sueno") or 7)
-            fatiga = st.slider("Fatiga (10 = muy fatigado)", 1, 10, value=checkin_actual.get("fatiga") or 4)
+            adherencia_dieta = st.slider(
+                "Adherencia a la dieta", 1, 10, value=guardado.get("adherencia_dieta") or 7, key=f"ad_{sufijo}"
+            )
+            calidad_sueno = st.slider(
+                "Calidad del sueño", 1, 10, value=guardado.get("calidad_sueno") or 7, key=f"cs_{sufijo}"
+            )
+            fatiga = st.slider(
+                "Fatiga (10 = muy fatigado)", 1, 10, value=guardado.get("fatiga") or 4, key=f"fa_{sufijo}"
+            )
         with col2:
             adherencia_entrenamiento = st.slider(
-                "Adherencia al entrenamiento", 1, 10, value=checkin_actual.get("adherencia_entrenamiento") or 7
+                "Adherencia al entrenamiento", 1, 10,
+                value=guardado.get("adherencia_entrenamiento") or 7, key=f"ae_{sufijo}",
             )
-            nivel_estres = st.slider("Nivel de estrés (10 = muy estresado)", 1, 10, value=checkin_actual.get("nivel_estres") or 4)
+            nivel_estres = st.slider(
+                "Nivel de estrés (10 = muy estresado)", 1, 10,
+                value=guardado.get("nivel_estres") or 4, key=f"ne_{sufijo}",
+            )
             peso_corporal_kg = st.number_input(
                 "Peso corporal (kg)", min_value=30.0, max_value=250.0, step=0.1,
-                value=float(checkin_actual.get("peso_corporal_kg") or 70.0),
+                value=float(guardado.get("peso_corporal_kg") or 70.0), key=f"pc_{sufijo}",
             )
 
-        notas = st.text_area("Notas de la semana (opcional)", value=checkin_actual.get("notas") or "")
+        notas = st.text_area(
+            "Notas de la semana (opcional)", value=guardado.get("notas") or "", key=f"no_{sufijo}"
+        )
 
         submitted = st.form_submit_button("💾 Guardar check-in", use_container_width=True, type="primary")
 
     if submitted:
         upsert_checkin(
             cliente_id,
-            semana_fecha=semana_actual.isoformat(),
+            semana_fecha=lunes.isoformat(),
             adherencia_dieta=adherencia_dieta,
             adherencia_entrenamiento=adherencia_entrenamiento,
             calidad_sueno=calidad_sueno,
@@ -111,7 +214,7 @@ def render_checkin_cliente(cliente_id: str) -> None:
             peso_corporal_kg=peso_corporal_kg,
             notas=notas,
         )
-        st.success("Check-in guardado. ¡Gracias por la actualización!")
+        st.success(f"Check-in de la semana del {rango} guardado. ¡Gracias por la actualización!")
         st.rerun()
 
 
@@ -206,43 +309,46 @@ def render_alertas_adherencia_dieta() -> None:
 
 def _generar_notificacion_checkin_faltante(cliente_id: str) -> None:
     """
-    Si la semana pasada (lunes a domingo, ya cerrada) terminó sin check-in,
-    crea la notificación una sola vez por semana faltante. Se llama al
-    entrar a "Mis Notificaciones" en vez de con un cron, porque la app no
-    tiene un proceso en segundo plano — se evalúa de forma perezosa en
-    cada visita, con guardas para no duplicar ni avisar antes de tiempo.
+    Avisa si la semana anterior (ya cerrada) sigue sin reportarse. Se evalúa
+    al entrar a "Mis Notificaciones" en vez de con un cron, porque la app no
+    tiene proceso en segundo plano.
+
+    A diferencia de la versión anterior, el aviso SÍ se repite mientras el
+    check-in siga pendiente — que es lo útil, porque el cliente todavía está
+    a tiempo de llenarlo. El límite es de un aviso por día: sin ese tope,
+    cada visita a esta pantalla dispararía otro correo.
     """
-    semana_actual = _inicio_semana_actual()
-    semana_pasada = semana_actual - timedelta(days=7)
+    semana = semana_a_reportar()
+    if semana is None:
+        return  # aún no arranca el periodo de seguimiento (ver SEMANA_INICIO_CHECKINS)
 
     cliente = get_cliente(cliente_id)
-    fecha_creacion_str = (cliente.get("created_at") if cliente else None) or ""
-    if fecha_creacion_str and date.fromisoformat(fecha_creacion_str[:10]) > semana_pasada:
+    fecha_creacion = fecha_bogota(cliente.get("created_at") if cliente else None)
+    if fecha_creacion and fecha_creacion > semana:
         return  # el cliente todavía no existía en esa semana
 
-    if get_checkin_semana(cliente_id, semana_pasada):
-        return  # sí lo llenó
+    if get_checkin_semana(cliente_id, semana):
+        return  # ya la reportó: no se avisa nada
 
-    ya_avisado = any(
-        n["tipo"] == "checkin_faltante" and (n.get("created_at") or "") >= semana_actual.isoformat()
+    hoy = hoy_bogota()
+    ya_avisado_hoy = any(
+        n["tipo"] == "checkin_faltante" and fecha_bogota(n.get("created_at")) == hoy
         for n in list_notificaciones(cliente_id)
     )
-    if ya_avisado:
+    if ya_avisado_hoy:
         return
 
     # crear_notificacion_sistema (no crear_notificacion): esta alerta la dispara
     # la sesión del propio CLIENTE, y la policy de INSERT de "notificaciones"
-    # exige ser admin. Sin esa vía el registro se rechazaba siempre y, como el
-    # correo sale antes del insert, el cliente recibía el mismo correo en cada
-    # visita a esta pantalla.
+    # exige ser admin. Ver sql/001_schema_roles_rls.sql.
     crear_notificacion_sistema(
         cliente_id,
         tipo="checkin_faltante",
         titulo="Check-in semanal pendiente",
         mensaje=(
-            f"No registraste tu check-in de la semana del {semana_pasada.isoformat()} al "
-            f"{(semana_pasada + timedelta(days=6)).isoformat()}. Complétalo en 'Check-in Semanal' "
-            "para que tu entrenador pueda dar seguimiento a tu progreso."
+            f"Todavía no reportaste tu check-in de la semana del {_rango_semana(semana)}. "
+            "Tienes hasta el domingo para completarlo en 'Check-in Semanal' y que tu "
+            "entrenador pueda dar seguimiento a tu progreso."
         ),
     )
 

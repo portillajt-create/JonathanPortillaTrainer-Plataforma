@@ -46,6 +46,29 @@ def url_hevy_valida(url: Any) -> str | None:
     return limpia if _URL_HEVY.match(limpia) else None
 
 
+def hoy_bogota() -> date:
+    """
+    Fecha de hoy en Colombia. Importante para el check-in semanal: el
+    servidor de Streamlit Cloud corre en UTC, así que date.today() cambia de
+    día (y por tanto de semana) a las 7:00 p.m. hora Colombia. Con esto, la
+    semana pasa de domingo a lunes cuando de verdad es medianoche aquí.
+    """
+    return datetime.now(_BOGOTA).date()
+
+
+def fecha_bogota(iso_str: str | None) -> date | None:
+    """Convierte un timestamp de Supabase (UTC) a la fecha calendario en Colombia."""
+    if not iso_str:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(iso_str).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_BOGOTA).date()
+
+
 def formatear_fecha_hora(iso_str: str | None) -> str:
     """'2026-08-26T14:32:07+00:00' (UTC, como lo guarda Supabase) -> '26/08/2026 09:32' (hora de Bogotá)."""
     if not iso_str:
