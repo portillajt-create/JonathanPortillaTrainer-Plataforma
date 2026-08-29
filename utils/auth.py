@@ -182,7 +182,13 @@ def _load_perfil(user_id: str) -> None:
         supabase.table("clientes")
         .select("rol, nombre_completo")
         .eq("id", user_id)
-        .single()
+        # .maybe_single() (no .single()): .single() lanza una excepción si no
+        # encuentra la fila, así que el "else" de abajo (pensado justo para el
+        # caso borde de latencia del trigger tras el signup) nunca se
+        # ejecutaba — el login reventaba con un error en pantalla en vez de
+        # degradar como estaba previsto. Mismo método que ya usan
+        # get_cliente()/get_onboarding() en utils/queries.py.
+        .maybe_single()
         .execute()
     )
     if resp.data:

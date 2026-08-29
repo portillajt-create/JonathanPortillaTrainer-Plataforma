@@ -358,6 +358,10 @@ $$;
 -- API (la app nunca expone eso en su UI post-registro; si un cliente lo
 -- cambiara ahí, desviaría sus propias notificaciones a un correo
 -- arbitrario y falsearía lo que ve el admin en "Gestión de Clientes").
+-- También blinda "created_at": el único efecto conocido de adelantarlo es
+-- evadir la alerta de check-in faltante (que no reclama nada de antes de
+-- que el cliente existiera), pero sigue siendo una columna de sistema que
+-- ningún cliente debería poder tocar.
 -- (La política RLS ya limita qué filas puede tocar; este trigger blinda
 -- esas columnas incluso si en el futuro se relaja esa política).
 --
@@ -395,6 +399,9 @@ begin
     end if;
     if auth.uid() is not null and not public.is_admin() and new.nombre_completo is distinct from old.nombre_completo then
         new.nombre_completo := old.nombre_completo;
+    end if;
+    if auth.uid() is not null and not public.is_admin() and new.created_at is distinct from old.created_at then
+        new.created_at := old.created_at;
     end if;
     return new;
 end;
