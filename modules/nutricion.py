@@ -188,9 +188,19 @@ def render_admin(cliente_id: str) -> None:
         )
 
     if st.button("🍽️ Generar ejemplo de dieta con estos macros"):
-        st.session_state[plan_key] = generar_ejemplo_dieta(proteinas_g, carbohidratos_g, grasas_g)
+        resultado = generar_ejemplo_dieta(proteinas_g, carbohidratos_g, grasas_g, alergias)
+        st.session_state[plan_key] = resultado.texto
         st.session_state[notas_key] = generar_notas_adicionales(peso_kg, edad, nivel_actividad, ajuste_pct)
+        if resultado.alimentos_excluidos:
+            st.session_state[f"dieta_alergias_excluidas_{cliente_id}"] = (
+                f"Por las alergias/intolerancias reportadas ({', '.join(resultado.alergenos_detectados)}), "
+                f"excluí de la búsqueda: {', '.join(resultado.alimentos_excluidos)}."
+            )
         st.rerun()
+
+    aviso_alergias = st.session_state.pop(f"dieta_alergias_excluidas_{cliente_id}", None)
+    if aviso_alergias:
+        st.success(f"🔎 {aviso_alergias} Revisa igual el resultado — es detección por palabras clave, no infalible.")
 
     plan_comidas = st.text_area(
         "Plan de comidas (editable — genera un ejemplo arriba o escribe el tuyo). "
