@@ -91,11 +91,11 @@ CSS = """
     opacity: 0.35;
 }
 
-/* Título de cada tarjeta de cliente en "Gestión de Clientes": un par de
-   puntos más grande que el resto de la app, para que se lea mejor de
-   un vistazo en la lista. Solo esta lista, no todos los st.expander. */
+/* Título de cada tarjeta de cliente en "Gestión de Clientes": vuelto al
+   tamaño normal (16px) a pedido del usuario tras probarlo agrandado; la
+   negrita del nombre se mantiene igual. */
 [class*="st-key-lista_clientes"] [data-testid="stExpander"] summary p {
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
 }
 
 /* Selector de cliente compartido en las páginas de admin (Ficha del Atleta,
