@@ -287,8 +287,28 @@ def _resolver_2x2_con_uno_en_cero(
     ]
 
 
+#: Alimentos que en la práctica no se pesan en gramos sino que se cuentan
+#: por unidad — nadie pesa una clara de huevo en una balanza de cocina. El
+#: sistema de ecuaciones sigue resolviendo en gramos por dentro (para que
+#: la precisión de macros no cambie), pero el texto final se redondea a
+#: unidades enteras porque es lo que el cliente puede medir de verdad.
+#: (gramos por unidad, "1 ..." singular, "N ..." plural)
+UNIDADES_ALIMENTO: dict[str, tuple[float, str, str]] = {
+    "Claras de huevo crudas": (30, "clara de huevo", "claras de huevo"),
+}
+
+
+def _texto_cantidad(gramos: float, nombre: str) -> str:
+    unidad = UNIDADES_ALIMENTO.get(nombre)
+    if unidad:
+        gramos_por_unidad, singular, plural = unidad
+        cantidad = max(1, round(gramos / gramos_por_unidad))
+        return f"{cantidad} {singular if cantidad == 1 else plural}"
+    return f"{_redondear(gramos)} g de {nombre.lower()}"
+
+
 def _texto_combo(gramos: list[float], nombres: list[str]) -> str:
-    return " + ".join(f"{_redondear(g)} g de {nombre.lower()}" for g, nombre in zip(gramos, nombres))
+    return " + ".join(_texto_cantidad(g, nombre) for g, nombre in zip(gramos, nombres))
 
 
 def _desvio_total(objetivo: tuple[float, float, float], nombres: list[str], alimentos: list[dict]) -> tuple[float, list[float]]:
@@ -377,7 +397,8 @@ def generar_ejemplo_dieta(
             f"**{nombre_comida}**\n"
             f"- Opción 1: {opciones_texto[0]}\n"
             f"- Opción 2: {opciones_texto[1]}\n"
-            f"- Vegetales libres a elección (brócoli, espinaca, lechuga, tomate)"
+            f"- Vegetales libres a elección (brócoli, espinaca, lechuga, tomate) + 1 porción de fruta "
+            f"si quieres (manzana, pera, fresas, mandarina, papaya)"
         )
 
     encabezado = (
