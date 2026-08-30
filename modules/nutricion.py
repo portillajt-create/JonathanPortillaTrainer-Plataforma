@@ -26,7 +26,7 @@ from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
-from utils.formato import escapar_markdown, formatear_fecha_hora
+from utils.formato import es_respuesta_vacia_o_negativa, escapar_markdown, formatear_fecha_hora
 from utils.plan_alimentario import generar_ejemplo_dieta
 from utils.queries import get_dieta_activa, get_onboarding, guardar_dieta
 
@@ -173,7 +173,8 @@ def render_admin(cliente_id: str) -> None:
     tipo_actual = dieta_actual.get("tipo_dieta") if dieta_actual and dieta_actual.get("tipo_dieta") in TIPOS_DIETA else TIPOS_DIETA[0]
     tipo_dieta = st.selectbox("Tipo de dieta", TIPOS_DIETA, index=TIPOS_DIETA.index(tipo_actual))
 
-    alergias = onboarding_cliente.get("alergias_alimentarias")
+    alergias_raw = onboarding_cliente.get("alergias_alimentarias")
+    alergias = None if es_respuesta_vacia_o_negativa(alergias_raw) else alergias_raw
     if alergias:
         st.warning(
             f"⚠️ Este cliente reportó alergias/intolerancias: **{escapar_markdown(alergias)}**. "
