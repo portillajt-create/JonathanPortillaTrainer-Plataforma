@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -36,6 +37,48 @@ def escapar_markdown(texto: Any, vacio: str = "—") -> str:
     if texto is None or not str(texto).strip():
         return vacio
     return _MARKDOWN_ESPECIALES.sub(lambda m: "\\" + m.group(1), str(texto))
+
+
+def _sin_acentos(texto: str) -> str:
+    descompuesto = unicodedata.normalize("NFKD", texto)
+    return "".join(c for c in descompuesto if not unicodedata.combining(c))
+
+
+# Variantes comunes de "no tengo nada que reportar" que un cliente escribe
+# en los campos de patologías/lesiones en vez de dejarlos en blanco. Se
+# compara el texto COMPLETO ya normalizado (sin tildes, minúsculas, sin
+# puntuación en los bordes) contra este set — no una búsqueda de "no" como
+# subcadena, porque eso marcaría como negativa una respuesta real como "No
+# puedo correr por dolor en la rodilla".
+_RESPUESTAS_NEGATIVAS = {
+    "no", "no tengo", "no tengo ninguna", "no tengo ninguno", "no tengo nada",
+    "no tengo nada que reportar", "no tengo ningun problema",
+    "ninguna", "ninguno", "ningun", "ninguna reportada",
+    "n/a", "na", "no aplica",
+    "no presento", "no presenta", "no tiene", "no tiene ninguna",
+    "nada", "nada relevante", "nada que reportar", "nada en particular",
+    "no reporto", "no reporta", "no reporto ninguna", "no reporto nada",
+    "sin patologias", "sin patologia", "sin lesiones", "sin lesion",
+    "sin nada", "sin ninguna", "sin ningun problema",
+    "x",
+}
+
+
+def es_respuesta_vacia_o_negativa(texto: Any) -> bool:
+    """
+    True si el campo está vacío O si lo que escribió el cliente es alguna
+    variante de "no tengo nada que reportar" (no, ninguna, n/a, sin
+    lesiones, etc.) en vez de describir una condición real.
+
+    Pensado para los campos de patologías/lesiones del onboarding: muchos
+    clientes escriben "No" en vez de dejar el campo en blanco, y antes eso
+    disparaba la alerta de "reportó patologías" exactamente igual que si
+    hubiera descrito una condición real.
+    """
+    if texto is None:
+        return True
+    normalizado = _sin_acentos(str(texto).strip().lower()).strip(" .,;:!¡¿?-")
+    return not normalizado or normalizado in _RESPUESTAS_NEGATIVAS
 
 
 def url_hevy_valida(url: Any) -> str | None:

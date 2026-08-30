@@ -15,7 +15,7 @@ from datetime import date
 
 import streamlit as st
 
-from utils.formato import escapar_markdown, url_hevy_valida
+from utils.formato import es_respuesta_vacia_o_negativa, escapar_markdown, url_hevy_valida
 from utils.pdf_export import generar_pdf_onboarding
 from utils.queries import get_cliente, get_onboarding, update_cliente_hevy_url, upsert_onboarding
 
@@ -166,7 +166,7 @@ def render_ficha_admin(cliente_id: str) -> None:
         st.warning("Este cliente todavía no completó su formulario de onboarding.")
         return
 
-    if (datos.get("patologias") or "").strip() or (datos.get("lesiones") or "").strip():
+    if not es_respuesta_vacia_o_negativa(datos.get("patologias")) or not es_respuesta_vacia_o_negativa(datos.get("lesiones")):
         st.error(
             "⚠️ **Atención**: este cliente reportó patologías y/o lesiones. "
             "Revisa el detalle abajo antes de asignar cargas o ejercicios de riesgo."
@@ -242,7 +242,7 @@ def _calcular_edad(fecha_nacimiento: str | None) -> int | None:
 
 
 def _campo_alerta(etiqueta: str, valor: str | None) -> None:
-    if valor and valor.strip():
+    if not es_respuesta_vacia_o_negativa(valor):
         # escapar_markdown también protege el ":red[...]" de Streamlit: un "]"
         # sin escapar en el texto del cliente cerraría el bloque de color antes
         # de tiempo y dejaría inyectar formato fuera de él.

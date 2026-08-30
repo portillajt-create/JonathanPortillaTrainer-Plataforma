@@ -12,6 +12,8 @@ from typing import Any
 
 from fpdf import FPDF
 
+from utils.formato import es_respuesta_vacia_o_negativa
+
 _AZUL = (59, 130, 246)
 _GRIS = (110, 110, 110)
 _ROJO = (200, 30, 30)
@@ -87,8 +89,8 @@ def generar_pdf_onboarding(cliente: dict[str, Any], datos: dict[str, Any]) -> by
     pdf.cell(0, 6, _safe(f"Generado el {date.today().isoformat()}"), new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0)
 
-    hay_patologias = bool((datos.get("patologias") or "").strip())
-    hay_lesiones = bool((datos.get("lesiones") or "").strip())
+    hay_patologias = not es_respuesta_vacia_o_negativa(datos.get("patologias"))
+    hay_lesiones = not es_respuesta_vacia_o_negativa(datos.get("lesiones"))
     if hay_patologias or hay_lesiones:
         pdf.ln(3)
         pdf.set_font("Helvetica", "B", 10)
