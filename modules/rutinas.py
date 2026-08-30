@@ -40,6 +40,15 @@ from utils.queries import get_rutina_activa, guardar_rutina
 
 DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
 
+
+def _texto_cantidad_ejercicios(cantidad: int) -> str:
+    """" (N ejercicios)" para mostrar junto al título de cada día — vacío
+    si el día todavía no tiene ejercicios (no tiene sentido decir "(0
+    ejercicios)")."""
+    if cantidad <= 0:
+        return ""
+    return f" ({cantidad} ejercicio{'s' if cantidad != 1 else ''})"
+
 MUSCULOS = [
     "Pectoral", "Espalda", "Cuádriceps", "Isquios", "Hombros", "Glúteo", "Bíceps",
     "Tríceps", "Trapecio", "Aductores", "Abductores", "Pantorrillas", "Antebrazos", "Abdomen",
@@ -170,7 +179,8 @@ def render_admin(cliente_id: str) -> None:
             st.session_state[etiqueta_key] = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
 
         etiqueta_actual = st.session_state.get(etiqueta_key, "")
-        titulo_expander = f"{dia}: {etiqueta_actual}" if etiqueta_actual else dia
+        sufijo_cantidad = _texto_cantidad_ejercicios(len(por_dia[dia]))
+        titulo_expander = f"{dia}: {etiqueta_actual}{sufijo_cantidad}" if etiqueta_actual else f"{dia}{sufijo_cantidad}"
         with st.expander(titulo_expander, expanded=bool(por_dia[dia])):
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
@@ -342,7 +352,8 @@ def render_cliente(cliente_id: str) -> None:
     dias_ordenados = sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS))
     for idx, dia in enumerate(dias_ordenados):
         etiqueta = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
-        titulo_dia = f"{dia}: {etiqueta}" if etiqueta else dia
+        sufijo_cantidad = _texto_cantidad_ejercicios(len(por_dia[dia]))
+        titulo_dia = f"{dia}: {etiqueta}{sufijo_cantidad}" if etiqueta else f"{dia}{sufijo_cantidad}"
         with st.expander(titulo_dia, expanded=(idx == 0)):
             for i, ejercicio in enumerate(por_dia[dia]):
                 if i > 0:
