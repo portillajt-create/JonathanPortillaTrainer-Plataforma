@@ -309,6 +309,52 @@ NOMBRE_SPLIT_LEGIBLE = {
     "arnold": "Arnold Split",
 }
 
+# Nombre corto de cada arquetipo para usar como "nombre del día" (el mismo
+# campo que el admin llenaría a mano, ej. "Full Body - A"). Se dejan en
+# inglés los términos que ya se usan así en NOMBRE_SPLIT_LEGIBLE (Full
+# Body, Upper/Lower, Push/Pull/Legs) para no inventar una segunda
+# convención; el resto (Weider, Arnold) no tiene nombre corto estándar en
+# inglés para cada día, así que van en español.
+NOMBRE_ARQUETIPO_LEGIBLE: dict[str, str] = {
+    "full_body": "Full Body",
+    "upper": "Upper",
+    "lower": "Lower",
+    "push": "Push",
+    "pull": "Pull",
+    "legs": "Legs",
+    "pecho_triceps": "Pecho y Tríceps",
+    "espalda_biceps": "Espalda y Bíceps",
+    "pierna_weider": "Pierna",
+    "hombro_abdomen": "Hombro y Abdomen",
+    "brazo": "Brazo",
+    "pecho_espalda_arnold": "Pecho y Espalda",
+    "hombro_brazo_arnold": "Hombro y Brazo",
+}
+
+
+def _etiquetas_por_dia(arquetipos_por_dia: list[str]) -> list[str]:
+    """
+    Nombre de cada día a partir de su arquetipo (ej. "Full Body", "Push",
+    "Pierna"). Si el mismo arquetipo se repite en más de un día de la
+    rutina (ej. Full Body en 3 días, o Upper/Lower rotando en 4 días), se
+    le agrega un sufijo "- A", "- B", "- C"... para distinguirlos de un
+    vistazo, igual que haría un entrenador al nombrarlos a mano.
+    """
+    total_por_arquetipo: dict[str, int] = {}
+    for arquetipo in arquetipos_por_dia:
+        total_por_arquetipo[arquetipo] = total_por_arquetipo.get(arquetipo, 0) + 1
+
+    ocurrencia: dict[str, int] = {}
+    etiquetas = []
+    for arquetipo in arquetipos_por_dia:
+        nombre = NOMBRE_ARQUETIPO_LEGIBLE.get(arquetipo, arquetipo)
+        if total_por_arquetipo[arquetipo] > 1:
+            n = ocurrencia.get(arquetipo, 0)
+            nombre = f"{nombre} - {chr(ord('A') + n)}"
+            ocurrencia[arquetipo] = n + 1
+        etiquetas.append(nombre)
+    return etiquetas
+
 
 def _dias_para_split(split: str, n: int) -> list[str]:
     base = _PLANTILLA_SPLIT[split]
@@ -364,6 +410,7 @@ def generar_ejemplo_rutina(nombre_rutina: str, descripcion: str) -> ResultadoGen
     n_dias = max(2, min(7, n_dias))
 
     arquetipos_por_dia = _asignar_arquetipos(splits, n_dias)
+    etiquetas_por_dia = _etiquetas_por_dia(arquetipos_por_dia)
 
     contador_musculo: dict[str, int] = {}
     bloques: list[dict] = []
@@ -382,6 +429,7 @@ def generar_ejemplo_rutina(nombre_rutina: str, descripcion: str) -> ResultadoGen
                 bloques.append(
                     {
                         "dia": DIAS_APP[idx],
+                        "dia_etiqueta": etiquetas_por_dia[idx],
                         "ejercicio": nombre,
                         "musculo": musculo,
                         "series": series,
