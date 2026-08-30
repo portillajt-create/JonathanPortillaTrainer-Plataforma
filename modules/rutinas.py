@@ -42,12 +42,12 @@ DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
 
 
 def _texto_cantidad_ejercicios(cantidad: int) -> str:
-    """" (N ejercicios)" para mostrar junto al título de cada día — vacío
-    si el día todavía no tiene ejercicios (no tiene sentido decir "(0
+    """" - (N ejercicios)" para mostrar junto al título de cada día — vacío
+    si el día todavía no tiene ejercicios (no tiene sentido decir "- (0
     ejercicios)")."""
     if cantidad <= 0:
         return ""
-    return f" ({cantidad} ejercicio{'s' if cantidad != 1 else ''})"
+    return f" - ({cantidad} ejercicio{'s' if cantidad != 1 else ''})"
 
 MUSCULOS = [
     "Pectoral", "Espalda", "Cuádriceps", "Isquios", "Hombros", "Glúteo", "Bíceps",
