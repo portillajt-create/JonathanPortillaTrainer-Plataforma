@@ -337,7 +337,7 @@ def render_admin(cliente_id: str) -> None:
                     rpe_corto = rpe_guardado[4:] if rpe_guardado.startswith("RPE ") else rpe_guardado
                     rpe_actual = rpe_corto if rpe_corto in RANGOS_RPE else RPE_DEFAULT
                     seleccion_rpe = st.segmented_control(
-                        "RPE / RIR", RANGOS_RPE, default=rpe_actual, required=True, key=f"rpe_{bid}"
+                        "RPE", RANGOS_RPE, default=rpe_actual, required=True, key=f"rpe_{bid}", width="stretch"
                     )
                     bloque["rpe_rir"] = f"RPE {seleccion_rpe}"
                 with col8:
