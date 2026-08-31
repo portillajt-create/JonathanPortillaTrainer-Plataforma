@@ -76,7 +76,7 @@ MUSCULO_COLOR: dict[str, tuple[str, str]] = {
 
 BLOQUE_DEFAULT = {
     "dia": DIAS[0], "ejercicio": "", "musculo": MUSCULOS[0], "series": 3,
-    "repeticiones": "8-12", "rpe_rir": "RIR 2", "descanso_min": 1.5, "notas": "",
+    "repeticiones": "8-12", "rpe_rir": "RPE 8", "descanso_min": 1.5, "notas": "",
 }
 
 
@@ -250,9 +250,12 @@ def render_admin(cliente_id: str) -> None:
         sufijo_cantidad = _texto_cantidad_ejercicios(len(por_dia[dia]))
         titulo_expander = f"{dia}: {etiqueta_actual}{sufijo_cantidad}" if etiqueta_actual else f"{dia}{sufijo_cantidad}"
 
-        col_dia, col_up_dia, col_down_dia = st.columns([14, 1, 1])
-        with col_dia:
-            expander_dia = st.expander(titulo_expander, expanded=bool(por_dia[dia]))
+        # Las flechas van en su PROPIA fila, arriba del expander — no
+        # envolviendo al expander en una columna angosta (como estaba antes),
+        # porque eso le achicaba el ancho a TODO lo de adentro y Streamlit
+        # llega a esconder los botones +/- de los number_input (Series,
+        # Descanso) cuando quedan demasiado angostos.
+        col_up_dia, col_down_dia, _col_resto = st.columns([1, 1, 14])
         with col_up_dia:
             with st.container(key=f"arrow-up-dia-{idx_dia}"):
                 if st.button(
@@ -274,7 +277,7 @@ def render_admin(cliente_id: str) -> None:
                     st.session_state[mover_dia_pendiente_key] = (dia, 1)
                     st.rerun()
 
-        with expander_dia:
+        with st.expander(titulo_expander, expanded=bool(por_dia[dia])):
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
             total_dia = len(por_dia[dia])
@@ -324,7 +327,7 @@ def render_admin(cliente_id: str) -> None:
                         "Repeticiones", value=bloque.get("repeticiones") or "8-12", key=f"reps_{bid}"
                     )
                 with col7:
-                    bloque["rpe_rir"] = st.text_input("RPE / RIR", value=bloque.get("rpe_rir") or "RIR 2", key=f"rpe_{bid}")
+                    bloque["rpe_rir"] = st.text_input("RPE / RIR", value=bloque.get("rpe_rir") or "RPE 8", key=f"rpe_{bid}")
                 with col8:
                     bloque["descanso_min"] = st.number_input(
                         "Descanso (min)", min_value=0.0, max_value=10.0, step=0.5,
