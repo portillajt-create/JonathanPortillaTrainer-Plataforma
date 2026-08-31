@@ -1,9 +1,10 @@
 """
 Módulo de Análisis y Gráficas de Progreso — Paso 5 (rediseñado).
 
-La integración automática con el perfil público de Hevy queda PENDIENTE a
-propósito. Al investigar el perfil público real (hevy.com/user/USERNAME)
-se confirmó que:
+La integración automática con el perfil público de Hevy se DESCARTÓ a
+propósito — no es una limitación temporal, es la decisión adoptada. Al
+investigar el perfil público real (hevy.com/user/USERNAME) se confirmó
+que:
 
   1. No es HTML estático: los datos se renderizan vía JavaScript, así que
      requests + BeautifulSoup (el enfoque original) no funciona.
@@ -20,16 +21,17 @@ se confirmó que:
      repeticiones por serie, insuficiente para graficar sobrecarga
      progresiva histórica.
 
-En su lugar, el admin puede IMPORTAR el historial real del cliente desde
-el archivo CSV que Hevy sí permite exportar manualmente (Perfil ->
-Configuración -> Exportar datos, dentro de su propia app) — ver
-utils/hevy_import.py para el parseo. Es un paso manual, no una
-sincronización automática, pero usa datos 100% reales del cliente sin
-sortear ningún control de acceso.
+La solución adoptada es que el admin IMPORTE el historial real del
+cliente desde el archivo CSV que Hevy sí permite exportar manualmente
+(Perfil -> Configuración -> Exportar datos, dentro de su propia app) —
+ver utils/hevy_import.py para el parseo. Es un paso manual (el cliente le
+pasa el archivo al admin y este lo sube), no una sincronización
+automática, pero usa datos 100% reales del cliente sin sortear ningún
+control de acceso.
 
 El enlace de perfil de Hevy que el cliente ya guarda en su onboarding
-(ver modules/onboarding.py) queda intacto para cuando se habilite una vía
-oficial (p. ej. la API de Hevy con la cuenta Pro del propio entrenador).
+(ver modules/onboarding.py) queda intacto como referencia, aunque hoy no
+se use para nada automático.
 """
 
 from __future__ import annotations
@@ -162,7 +164,7 @@ def _render_historial_ejercicio(cliente_id: str) -> None:
     muestra nada (no hay ejercicios entre los cuales elegir)."""
     historial = list_historial_entrenamientos(cliente_id)
     if not historial:
-        _nota_hevy()
+        st.caption("⏳ Todavía no se ha cargado el historial de entrenamiento de Hevy de este cliente.")
         return
 
     df = pd.DataFrame(historial)
@@ -193,8 +195,6 @@ def _render_historial_ejercicio(cliente_id: str) -> None:
         fig_vol.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=250)
         st.plotly_chart(theme.estilizar_grafico(fig_vol), use_container_width=True)
 
-    _nota_hevy()
-
 
 def _grafico_lineas(df: pd.DataFrame, columnas: dict[str, str]) -> None:
     df_largo = df.melt(
@@ -211,10 +211,3 @@ def _grafico_lineas(df: pd.DataFrame, columnas: dict[str, str]) -> None:
     fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300, yaxis_range=[0, 10])
     st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
 
-
-def _nota_hevy() -> None:
-    st.caption(
-        "ℹ️ La sincronización automática con Hevy está pendiente: su página pública no expone el "
-        "historial completo sin autenticación. El admin puede importar el historial real desde el "
-        "CSV que Hevy permite exportar manualmente."
-    )
