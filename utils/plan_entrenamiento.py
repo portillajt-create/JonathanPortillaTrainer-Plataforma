@@ -434,7 +434,7 @@ def generar_ejemplo_rutina(nombre_rutina: str, descripcion: str) -> ResultadoGen
                         "musculo": musculo,
                         "series": series,
                         "repeticiones": repeticiones,
-                        "rpe_rir": "RPE 8",
+                        "rpe_rir": "RPE 8-9",
                         "descanso_min": descanso_min,
                         "notas": "",
                     }

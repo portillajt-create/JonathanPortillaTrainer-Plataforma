@@ -54,6 +54,12 @@ MUSCULOS = [
     "Tríceps", "Trapecio", "Aductores", "Abductores", "Pantorrillas", "Antebrazos", "Abdomen",
 ]
 
+# Rangos en vez de un número fijo: un RPE exacto ("RPE 8") es más difícil
+# de estimar en el momento que un rango ("RPE 8-9"), y en la práctica
+# nadie distingue de forma confiable un RPE 8 de un RPE 8.2.
+RANGOS_RPE = ["6-7", "7-8", "8-9", "9-10"]
+RPE_DEFAULT = "8-9"
+
 # (color de st.badge, color hex para el gráfico) — agrupados por función
 # muscular (empuje en rojo/naranja, tirón en azul, piernas en verde) para
 # que la paleta se sienta coherente en vez de arbitraria.
@@ -76,7 +82,7 @@ MUSCULO_COLOR: dict[str, tuple[str, str]] = {
 
 BLOQUE_DEFAULT = {
     "dia": DIAS[0], "ejercicio": "", "musculo": MUSCULOS[0], "series": 3,
-    "repeticiones": "8-12", "rpe_rir": "RPE 8", "descanso_min": 1.5, "notas": "",
+    "repeticiones": "8-12", "rpe_rir": f"RPE {RPE_DEFAULT}", "descanso_min": 1.5, "notas": "",
 }
 
 
@@ -327,7 +333,13 @@ def render_admin(cliente_id: str) -> None:
                         "Repeticiones", value=bloque.get("repeticiones") or "8-12", key=f"reps_{bid}"
                     )
                 with col7:
-                    bloque["rpe_rir"] = st.text_input("RPE / RIR", value=bloque.get("rpe_rir") or "RPE 8", key=f"rpe_{bid}")
+                    rpe_guardado = bloque.get("rpe_rir") or ""
+                    rpe_corto = rpe_guardado[4:] if rpe_guardado.startswith("RPE ") else rpe_guardado
+                    rpe_actual = rpe_corto if rpe_corto in RANGOS_RPE else RPE_DEFAULT
+                    seleccion_rpe = st.segmented_control(
+                        "RPE / RIR", RANGOS_RPE, default=rpe_actual, required=True, key=f"rpe_{bid}"
+                    )
+                    bloque["rpe_rir"] = f"RPE {seleccion_rpe}"
                 with col8:
                     bloque["descanso_min"] = st.number_input(
                         "Descanso (min)", min_value=0.0, max_value=10.0, step=0.5,
