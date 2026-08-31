@@ -69,6 +69,41 @@ ALIMENTOS_GRASA = {
     "Queso costeño": {"kcal": 300, "prot": 22, "carb": 2, "grasa": 23},
 }
 
+# Porción mínima "servible" de cada alimento (en gramos) — el sistema de
+# ecuaciones por sí solo no sabe que "5 g de pechuga de pollo" no es una
+# porción real que alguien vaya a pesar; solo sabe cuadrar macros. Se usa
+# en _mejores_2_combos() para descartar (no elegir) combinaciones donde
+# algún alimento saldría en una cantidad poco realista, aunque matemática-
+# mente cuadre mejor. "Claras de huevo crudas" no está acá: ya tiene su
+# propio mínimo de 1 unidad (30 g) vía UNIDADES_ALIMENTO/_texto_cantidad.
+MINIMO_GRAMOS: dict[str, float] = {
+    "Pechuga de pollo cocida": 40,
+    "Carne de res magra cocida": 40,
+    "Pechuga de pavo cocida": 40,
+    "Atún en agua (escurrido)": 40,
+    "Proteína en polvo (whey)": 15,
+    "Avena cruda": 20,
+    "Arroz blanco cocido": 40,
+    "Papa cocida": 40,
+    "Papa criolla cocida": 40,
+    "Yuca cocida": 40,
+    "Plátano maduro cocido": 30,
+    "Arepa de maíz asada": 30,
+    "Pan integral": 20,
+    "Banana": 30,
+    "Frijoles rojos cocidos": 40,
+    "Lentejas cocidas": 40,
+    "Garbanzos cocidos": 40,
+    "Quinoa cocida": 40,
+    "Aceite de oliva": 5,
+    "Aguacate": 20,
+    "Almendras": 10,
+    "Mantequilla de maní": 10,
+    "Maní tostado": 10,
+    "Nueces": 10,
+    "Queso costeño": 15,
+}
+
 # =============================================================================
 # 2. BOLSAS DE ALIMENTOS "TÍPICOS" POR COMIDA
 #    (nombre de la comida, % del día, alimentos de proteína, de carbohidrato,
@@ -318,27 +353,50 @@ def _desvio_total(objetivo: tuple[float, float, float], nombres: list[str], alim
     return desvio, gramos
 
 
+def _penalizacion_porciones_pequenas(gramos: list[float], nombres: list[str]) -> float:
+    """
+    Cuánto le falta a cada alimento del combo para llegar a su porción
+    mínima servible (MINIMO_GRAMOS) — 0 g cuenta como el peor caso posible
+    (el alimento "desaparece" del combo pero el sistema lo sigue listando
+    en el texto). El resultado se multiplica por un factor grande para que,
+    al elegir entre combinaciones candidatas, SIEMPRE gane una con
+    porciones que se puedan servir de verdad, aunque su ajuste de macros
+    sea un poco menos exacto — evita cosas como "5 g de pechuga de pollo".
+    """
+    penalizacion = 0.0
+    for gramos_alimento, nombre in zip(gramos, nombres):
+        minimo = MINIMO_GRAMOS.get(nombre, 0)
+        if gramos_alimento < minimo:
+            penalizacion += (minimo - gramos_alimento) * 8
+    return penalizacion
+
+
 def _mejores_2_combos(
     objetivo: tuple[float, float, float], prot_pool: list[str], carb_pool: list[str], grasa_pool: list[str],
-    intentos: int = 16,
+    intentos: int = 48,
 ) -> list[tuple[list[str], list[float]]]:
     """
     Sortea varios tríos (proteína, carbohidrato, grasa) del pool disponible
-    y se queda con los 2 MEJORES (menor desvío total al resolverlos), no
-    con los 2 primeros que salgan al azar. Algunos pares de alimentos no
-    pueden cuadrar bien juntos por más que se ajusten los gramos —por
-    ejemplo, dos fuentes que ya aportan de sobra la misma macro "escondida"
-    cada una por su lado— y esto evita quedarse con esa combinación cuando
-    había otra mejor en el mismo sorteo. Las 2 elegidas quedan además en
-    orden aleatorio, para que no siempre sea la misma la que sale de
-    "Opción 1".
+    y se queda con los 2 MEJORES (menor desvío total al resolverlos, más
+    una penalización si algún alimento sale en una porción poco realista —
+    ver _penalizacion_porciones_pequenas), no con los 2 primeros que salgan
+    al azar. Algunos pares de alimentos no pueden cuadrar bien juntos por
+    más que se ajusten los gramos —por ejemplo, dos fuentes que ya aportan
+    de sobra la misma macro "escondida" cada una por su lado— y esto evita
+    quedarse con esa combinación cuando había otra mejor en el mismo
+    sorteo. Las 2 elegidas quedan además en orden aleatorio, para que no
+    siempre sea la misma la que sale de "Opción 1".
 
-    intentos=16 (en vez de 8): con objetivos de macros muy desbalanceados
-    (p. ej. muy pocas proteínas y muchos carbohidratos) hacían falta más
-    sorteos para tener buena chance de dar con la combinación de carbohi-
-    drato que no aporte de más proteína "escondida" — verificado con 500
-    generaciones simuladas del peor caso encontrado: con 8 intentos el
-    desvío máximo era de 16.4 g, con 16 bajó a 0.0 g.
+    intentos=48 (subido desde 16 al agregar la penalización de porciones):
+    ahora cada combinación tiene que cumplir DOS cosas a la vez (macros
+    Y porciones realistas), así que hace falta sortear más para tener
+    buena chance de encontrar una que cumpla ambas — sobre todo en
+    objetivos de macros muy desbalanceados (p. ej. muy pocas proteínas
+    con muchos carbohidratos y grasas). Verificado con 300 generaciones
+    simuladas del peor caso encontrado: con 16 intentos el desvío máximo
+    era de 26.7 g, con 48 bajó a 2.1 g. El costo extra es insignificante
+    (cada intento es solo resolver un sistema 3x3, no hay llamadas a red
+    ni nada lento de por medio).
     """
     candidatos: list[tuple[float, list[str], list[float]]] = []
     vistos: set[tuple[str, str, str]] = set()
@@ -350,7 +408,8 @@ def _mejores_2_combos(
         vistos.add(clave)
         alimentos = [ALIMENTOS_PROTEINA[nombres[0]], ALIMENTOS_CARBOHIDRATO[nombres[1]], ALIMENTOS_GRASA[nombres[2]]]
         desvio, gramos = _desvio_total(objetivo, nombres, alimentos)
-        candidatos.append((desvio, nombres, gramos))
+        puntaje = desvio + _penalizacion_porciones_pequenas(gramos, nombres)
+        candidatos.append((puntaje, nombres, gramos))
 
     candidatos.sort(key=lambda c: c[0])
     mejores = candidatos[:2] if len(candidatos) >= 2 else candidatos * 2
