@@ -94,6 +94,42 @@ def _mover_bloque(bloques: list[dict[str, Any]], bid: str, dia: str, direccion: 
         bloques[i], bloques[j] = bloques[j], bloques[i]
 
 
+def _mover_dia(cliente_id: str, bloques: list[dict[str, Any]], dia: str, direccion: int) -> None:
+    """
+    Sube (-1) o baja (+1) un día COMPLETO, intercambiando todo lo que tiene
+    (sus ejercicios y su nombre) con el día vecino — mismo principio que
+    _mover_bloque, pero un nivel más arriba: el "Día N" es solo un slot fijo
+    (1 a 7), así que "mover el día" es cambiar a qué slot pertenece cada
+    ejercicio suyo, no reordenar una lista de días.
+    """
+    idx = DIAS.index(dia)
+    nuevo_idx = idx + direccion
+    if not (0 <= nuevo_idx < len(DIAS)):
+        return
+    dia_vecino = DIAS[nuevo_idx]
+
+    for bloque in bloques:
+        dia_actual = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
+        if dia_actual == dia:
+            bloque["dia"] = dia_vecino
+        elif dia_actual == dia_vecino:
+            bloque["dia"] = dia
+        else:
+            continue
+        # El selectbox "Día" de este ejercicio ya quedó renderizado con su
+        # propio valor guardado (key=f"dia_{bid}"); si no se actualiza acá
+        # también, Streamlit lo vuelve a mostrar con el valor viejo en el
+        # próximo render aunque bloque["dia"] ya haya cambiado.
+        st.session_state[f"dia_{bloque['_id']}"] = bloque["dia"]
+
+    etiqueta_key = f"rutina_etiqueta_{cliente_id}_{dia}"
+    etiqueta_vecino_key = f"rutina_etiqueta_{cliente_id}_{dia_vecino}"
+    st.session_state[etiqueta_key], st.session_state[etiqueta_vecino_key] = (
+        st.session_state.get(etiqueta_vecino_key, ""),
+        st.session_state.get(etiqueta_key, ""),
+    )
+
+
 def render_alertas_entrenamiento() -> None:
     checkin.render_alertas_deload()
     st.info(
@@ -121,6 +157,38 @@ def render_admin(cliente_id: str) -> None:
     if bloques_key not in st.session_state:
         bloques_iniciales = (rutina_actual.get("bloques") if rutina_actual else None) or []
         st.session_state[bloques_key] = [{**bloque, "_id": str(uuid.uuid4())} for bloque in bloques_iniciales]
+
+    # El nombre de cada uno de los 7 días se inicializa ACÁ, de una sola
+    # pasada, ANTES de tocar nada más — si se inicializara de a uno dentro
+    # del loop que más abajo dibuja cada día (como antes), un "subir/bajar
+    # día" pendiente podía intentar leer el nombre de un día al que esa
+    # misma corrida todavía no había llegado, y Streamlit ya había limpiado
+    # el valor de ese widget por no haberse vuelto a instanciar en la
+    # corrida anterior (la que se cortó en seco con st.rerun() al hacer
+    # clic) — el resultado era perder el nombre de AMBOS días al mover uno.
+    por_dia_init: dict[str, list[dict[str, Any]]] = {dia: [] for dia in DIAS}
+    for bloque in st.session_state[bloques_key]:
+        dia_bloque = bloque.get("dia") if bloque.get("dia") in DIAS else DIAS[0]
+        por_dia_init[dia_bloque].append(bloque)
+    for dia in DIAS:
+        etiqueta_key = f"rutina_etiqueta_{cliente_id}_{dia}"
+        if etiqueta_key not in st.session_state:
+            st.session_state[etiqueta_key] = next(
+                (b.get("dia_etiqueta") for b in por_dia_init[dia] if b.get("dia_etiqueta")), ""
+            )
+
+    # Si en el render anterior se le dio a "subir/bajar día", se aplica ACÁ
+    # (antes de que se instancie ningún widget "Día"/"Nombre del día" de
+    # este render) — Streamlit no deja modificar el session_state de un
+    # widget que ya se instanció en la misma corrida, así que el
+    # intercambio de un día completo no se puede hacer desde adentro del
+    # loop que va dibujando cada día (para cuando se llega al botón de un
+    # día, el día anterior ya renderizó sus propios widgets).
+    mover_dia_pendiente_key = f"rutina_mover_dia_pendiente_{cliente_id}"
+    pendiente = st.session_state.pop(mover_dia_pendiente_key, None)
+    if pendiente:
+        dia_pendiente, direccion_pendiente = pendiente
+        _mover_dia(cliente_id, st.session_state[bloques_key], dia_pendiente, direccion_pendiente)
 
     nombre_rutina = st.text_input(
         "Nombre de la rutina",
@@ -173,7 +241,7 @@ def render_admin(cliente_id: str) -> None:
     # poder agregar el primer ejercicio de un día directamente ahí, y para
     # que "Agregar ejercicio" quede dentro de cada día en vez de mandar
     # siempre al Día 1.
-    for dia in DIAS:
+    for idx_dia, dia in enumerate(DIAS):
         etiqueta_key = f"rutina_etiqueta_{cliente_id}_{dia}"
         if etiqueta_key not in st.session_state:
             st.session_state[etiqueta_key] = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
@@ -181,7 +249,32 @@ def render_admin(cliente_id: str) -> None:
         etiqueta_actual = st.session_state.get(etiqueta_key, "")
         sufijo_cantidad = _texto_cantidad_ejercicios(len(por_dia[dia]))
         titulo_expander = f"{dia}: {etiqueta_actual}{sufijo_cantidad}" if etiqueta_actual else f"{dia}{sufijo_cantidad}"
-        with st.expander(titulo_expander, expanded=bool(por_dia[dia])):
+
+        col_dia, col_up_dia, col_down_dia = st.columns([14, 1, 1])
+        with col_dia:
+            expander_dia = st.expander(titulo_expander, expanded=bool(por_dia[dia]))
+        with col_up_dia:
+            with st.container(key=f"arrow-up-dia-{idx_dia}"):
+                if st.button(
+                    "↑", key=f"subir_dia_{cliente_id}_{dia}", disabled=(idx_dia == 0),
+                    use_container_width=True, help="Subir este día completo (con todos sus ejercicios)",
+                ):
+                    # No se mueve acá mismo: el día anterior ya renderizó sus
+                    # widgets en este render, y Streamlit no deja tocar el
+                    # session_state de un widget ya instanciado. Se guarda la
+                    # intención y se aplica al principio del próximo render.
+                    st.session_state[mover_dia_pendiente_key] = (dia, -1)
+                    st.rerun()
+        with col_down_dia:
+            with st.container(key=f"arrow-down-dia-{idx_dia}"):
+                if st.button(
+                    "↓", key=f"bajar_dia_{cliente_id}_{dia}", disabled=(idx_dia == len(DIAS) - 1),
+                    use_container_width=True, help="Bajar este día completo (con todos sus ejercicios)",
+                ):
+                    st.session_state[mover_dia_pendiente_key] = (dia, 1)
+                    st.rerun()
+
+        with expander_dia:
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
             total_dia = len(por_dia[dia])
