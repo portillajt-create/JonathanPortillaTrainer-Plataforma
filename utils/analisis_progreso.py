@@ -1,8 +1,8 @@
 """
 Análisis del historial de entrenamiento real (importado de Hevy — ver
 utils/hevy_import.py) para detectar ejercicios que el admin debería
-revisar: sin progreso real en fuerza en las últimas sesiones, o que el
-cliente dejó de entrenar hace unas semanas.
+revisar: se están entrenando actualmente, pero no muestran progreso real
+de fuerza en las últimas sesiones.
 
 No usa IA ni nada probabilístico — son reglas simples y explicables sobre
 las sesiones más recientes de cada ejercicio, a propósito, para que el
@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from datetime import date
 
+#: Si la última vez que se entrenó un ejercicio fue hace más de esto, se
+#: considera que ya no es parte de lo que el cliente está haciendo AHORA
+#: (cambió de rutina, lo dejó, etc.) y no tiene sentido revisarlo — solo
+#: interesan los ejercicios que sigue entrenando.
+SEMANAS_ACTIVO_MAX = 2
+
 #: Cuántas de las sesiones MÁS RECIENTES de un ejercicio se miran para
 #: juzgar si hubo progreso real. Se compara el promedio de la mitad más
 #: vieja contra la mitad más nueva de esta ventana (no la última sesión
@@ -22,27 +28,12 @@ from datetime import date
 #: etc.), no un plateau real.
 VENTANA_SESIONES = 6
 
-#: Mínimo de sesiones para intentar juzgar progreso (se parte por la
-#: mitad); con menos que esto no hay tendencia confiable que comparar.
+#: Mínimo de sesiones (dentro de la ventana activa) para intentar juzgar
+#: progreso — con menos que esto no hay tendencia confiable que comparar.
 MIN_SESIONES_PROGRESO = 4
 
-#: Con menos sesiones que esto no hay información suficiente ni para decir
-#: "sin entrenar" — 1-2 sesiones no son un patrón, y evita llenar la lista
-#: con ejercicios que el cliente probó una sola vez.
-MIN_SESIONES = 3
-
-#: Rango de semanas "sin entrenar" que vale la pena avisar. El mínimo evita
-#: ruido por una pausa normal de una semana; el MÁXIMO es igual de
-#: importante — con años de historial, un ejercicio que se dejó de hacer
-#: hace 2+ años casi seguro fue un cambio de rutina a propósito, no algo
-#: que el admin "se le esté pasando". Sin el máximo, la lista terminaba
-#: dominada por ejercicios abandonados hace años en vez de vacíos
-#: recientes de la rutina actual.
-SEMANAS_SIN_ENTRENAR_MIN = 3
-SEMANAS_SIN_ENTRENAR_MAX = 10
-
 #: Margen para no contar como "progreso" una diferencia que es solo ruido
-#: de redondeo del 1RM estimado (1% del mejor 1RM reciente).
+#: de redondeo del 1RM estimado (1%).
 TOLERANCIA_PROGRESO = 0.01
 
 
@@ -65,9 +56,10 @@ def detectar_ejercicios_a_revisar(historial: list[dict], hoy: date) -> list[dict
     historial: filas de historial_entrenamientos (fecha ISO, ejercicio_nombre,
     peso_kg, repeticiones, ...) de UN cliente, en cualquier orden.
 
-    Devuelve una fila por ejercicio marcado (ordenadas por más urgente
-    primero), con: Ejercicio, Motivo (texto legible), Última sesión,
-    Semanas desde la última, Sesiones totales.
+    Solo considera ejercicios que el cliente sigue entrenando actualmente
+    (ver SEMANAS_ACTIVO_MAX) y que no muestran progreso real de fuerza en
+    sus sesiones recientes. Devuelve una fila por ejercicio marcado,
+    ordenadas por la caída de 1RM más grande primero.
     """
     por_ejercicio: dict[str, list[dict]] = {}
     for fila in historial:
@@ -75,47 +67,43 @@ def detectar_ejercicios_a_revisar(historial: list[dict], hoy: date) -> list[dict
 
     resultado = []
     for ejercicio, filas in por_ejercicio.items():
-        if len(filas) < MIN_SESIONES:
-            continue
-
         filas_ordenadas = sorted(filas, key=lambda f: f["fecha"])
         ultima_fecha = date.fromisoformat(filas_ordenadas[-1]["fecha"])
         semanas_desde_ultima = (hoy - ultima_fecha).days // 7
 
-        # Ya no es parte de la rutina actual -- no tiene sentido revisarlo
-        # (ni por "sin entrenar" ni por si dejó de progresar, esas sesiones
-        # ya son historia vieja).
-        if semanas_desde_ultima > SEMANAS_SIN_ENTRENAR_MAX:
+        # No es algo que el cliente esté haciendo ahora -- no interesa.
+        if semanas_desde_ultima > SEMANAS_ACTIVO_MAX:
             continue
-
-        motivos = []
-        if semanas_desde_ultima >= SEMANAS_SIN_ENTRENAR_MIN:
-            motivos.append(f"sin entrenar hace {semanas_desde_ultima} semanas")
 
         recientes = filas_ordenadas[-VENTANA_SESIONES:]
-        e1rms = [calcular_e1rm(f.get("peso_kg"), f.get("repeticiones")) for f in recientes]
-        if len(recientes) >= MIN_SESIONES_PROGRESO and all(v is not None for v in e1rms):
-            mitad = len(e1rms) // 2
-            promedio_viejo = sum(e1rms[:mitad]) / mitad
-            promedio_nuevo = sum(e1rms[mitad:]) / (len(e1rms) - mitad)
-            if promedio_nuevo <= promedio_viejo * (1 + TOLERANCIA_PROGRESO):
-                motivos.append(
-                    f"sin progreso en fuerza en las últimas {len(recientes)} sesiones "
-                    f"(1RM estimado promedio: {promedio_viejo:.0f} kg -> {promedio_nuevo:.0f} kg)"
-                )
-
-        if not motivos:
+        if len(recientes) < MIN_SESIONES_PROGRESO:
             continue
+
+        e1rms = [calcular_e1rm(f.get("peso_kg"), f.get("repeticiones")) for f in recientes]
+        if not all(v is not None for v in e1rms):
+            continue
+
+        mitad = len(e1rms) // 2
+        promedio_viejo = sum(e1rms[:mitad]) / mitad
+        promedio_nuevo = sum(e1rms[mitad:]) / (len(e1rms) - mitad)
+        if promedio_nuevo > promedio_viejo * (1 + TOLERANCIA_PROGRESO):
+            continue  # sí hubo progreso -- no se marca
 
         resultado.append(
             {
                 "Ejercicio": ejercicio,
-                "Motivo": " · ".join(motivos),
+                "Motivo": (
+                    f"sin progreso en fuerza en las últimas {len(recientes)} sesiones "
+                    f"(1RM estimado promedio: {promedio_viejo:.0f} kg -> {promedio_nuevo:.0f} kg)"
+                ),
                 "Última sesión": ultima_fecha.isoformat(),
                 "Semanas desde la última": semanas_desde_ultima,
                 "Sesiones totales": len(filas),
+                "_caida_pct": (promedio_viejo - promedio_nuevo) / promedio_viejo,
             }
         )
 
-    resultado.sort(key=lambda r: -r["Semanas desde la última"])
+    resultado.sort(key=lambda r: -r["_caida_pct"])
+    for fila in resultado:
+        del fila["_caida_pct"]
     return resultado

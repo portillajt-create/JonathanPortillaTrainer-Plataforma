@@ -165,17 +165,18 @@ def _render_checkins(cliente_id: str) -> None:
 
 
 def _render_ejercicios_a_revisar(historial: list[dict]) -> None:
-    """Tabla de ejercicios que el admin debería revisar: sin progreso real
-    de fuerza en las últimas sesiones, o sin entrenar hace unas semanas —
-    ver utils/analisis_progreso.py para las reglas exactas."""
+    """Tabla de ejercicios que el admin debería revisar: se están
+    entrenando actualmente pero no muestran progreso real de fuerza en
+    sus últimas sesiones — ver utils/analisis_progreso.py para las
+    reglas exactas."""
     revisar = detectar_ejercicios_a_revisar(historial, hoy_bogota())
     if not revisar:
         return
 
     st.markdown("##### Ejercicios a tener en cuenta")
     st.caption(
-        f"{len(revisar)} ejercicio{'s' if len(revisar) != 1 else ''} sin progreso de fuerza en sus "
-        "últimas sesiones, o sin entrenarse hace unas semanas."
+        f"{len(revisar)} ejercicio{'s' if len(revisar) != 1 else ''} que el cliente sigue entrenando "
+        "pero sin progreso real de fuerza en sus últimas sesiones, del más al menos marcado."
     )
     st.dataframe(
         revisar, use_container_width=True, hide_index=True,
