@@ -41,8 +41,15 @@ import plotly.express as px
 import streamlit as st
 
 from utils import theme
+from utils.analisis_progreso import calcular_e1rm, detectar_ejercicios_a_revisar
+from utils.formato import hoy_bogota
 from utils.hevy_import import parsear_csv_hevy
 from utils.queries import guardar_historial_entrenamientos, list_checkins, list_historial_entrenamientos
+
+#: Periodo -> días hacia atrás desde hoy (None = sin filtro, todo el historial).
+_PERIODOS_DIAS: dict[str, int | None] = {
+    "1 mes": 30, "3 meses": 90, "6 meses": 180, "1 año": 365, "Todo": None,
+}
 
 
 def render_admin(cliente_id: str) -> None:
@@ -157,43 +164,83 @@ def _render_checkins(cliente_id: str) -> None:
     )
 
 
+def _render_ejercicios_a_revisar(historial: list[dict]) -> None:
+    """Tabla de ejercicios que el admin debería revisar: sin progreso real
+    de fuerza en las últimas sesiones, o sin entrenar hace unas semanas —
+    ver utils/analisis_progreso.py para las reglas exactas."""
+    revisar = detectar_ejercicios_a_revisar(historial, hoy_bogota())
+    if not revisar:
+        return
+
+    st.markdown("##### Ejercicios a tener en cuenta")
+    st.caption(
+        f"{len(revisar)} ejercicio{'s' if len(revisar) != 1 else ''} sin progreso de fuerza en sus "
+        "últimas sesiones, o sin entrenarse hace unas semanas."
+    )
+    st.dataframe(
+        revisar, use_container_width=True, hide_index=True,
+        column_config={
+            "Ejercicio": st.column_config.TextColumn(width="medium"),
+            "Motivo": st.column_config.TextColumn(width="large"),
+            "Última sesión": st.column_config.TextColumn(width="small"),
+        },
+    )
+
+
 def _render_historial_ejercicio(cliente_id: str) -> None:
-    """Progreso por ejercicio (peso de la serie más pesada y volumen total por
-    día) a partir del historial real importado — ver _render_importar_hevy.
-    Si el cliente todavía no tiene historial importado, esta sección no
-    muestra nada (no hay ejercicios entre los cuales elegir)."""
+    """Progreso por ejercicio a partir del historial real importado — ver
+    _render_importar_hevy. Si el cliente todavía no tiene historial
+    importado, esta sección no muestra nada (no hay ejercicios entre los
+    cuales elegir)."""
     historial = list_historial_entrenamientos(cliente_id)
     if not historial:
         st.caption("⏳ Todavía no se ha cargado el historial de entrenamiento de Hevy de este cliente.")
         return
 
+    _render_ejercicios_a_revisar(historial)
+
     df = pd.DataFrame(historial)
     df["fecha"] = pd.to_datetime(df["fecha"])
+    df["e1rm"] = [calcular_e1rm(p, r) for p, r in zip(df["peso_kg"], df["repeticiones"])]
 
     st.markdown("##### Progreso por ejercicio")
     ejercicios = sorted(df["ejercicio_nombre"].unique())
     ejercicio_elegido = st.selectbox("Ejercicio", ejercicios, key=f"hevy_ejercicio_{cliente_id}")
 
+    periodo_elegido = st.segmented_control(
+        "Periodo", list(_PERIODOS_DIAS.keys()), default="6 meses",
+        required=True, key=f"hevy_periodo_{cliente_id}",
+    )
+    dias = _PERIODOS_DIAS[periodo_elegido]
+
     df_ejercicio = df[df["ejercicio_nombre"] == ejercicio_elegido].sort_values("fecha")
+    if dias is not None:
+        desde = pd.Timestamp(hoy_bogota()) - pd.Timedelta(days=dias)
+        df_ejercicio = df_ejercicio[df_ejercicio["fecha"] >= desde]
 
-    if df_ejercicio["peso_kg"].notna().any():
-        fig_peso = px.line(
-            df_ejercicio, x="fecha", y="peso_kg", markers=True,
-            labels={"fecha": "Fecha", "peso_kg": "Peso (kg) — serie más pesada del día"},
+    if df_ejercicio.empty:
+        st.caption("Este ejercicio no tiene sesiones registradas en el periodo elegido.")
+        return
+
+    if df_ejercicio["e1rm"].notna().any():
+        fig = px.line(
+            df_ejercicio, x="fecha", y="e1rm", markers=True,
+            labels={"fecha": "Fecha", "e1rm": "1RM estimado (kg)"},
+            custom_data=["peso_kg", "repeticiones"],
         )
-        fig_peso.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-        fig_peso.update_traces(line_color="#FFFFFF", marker=dict(color="#FFFFFF", size=6))
-        st.plotly_chart(theme.estilizar_grafico(fig_peso), use_container_width=True)
+        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=320)
+        fig.update_traces(
+            line_color="#FFFFFF", marker=dict(color="#FFFFFF", size=6),
+            hovertemplate="%{x|%d/%m/%Y}<br>1RM estimado: %{y:.0f} kg<br>Serie top: %{customdata[0]:g} kg x %{customdata[1]:g}<extra></extra>",
+        )
+        st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
+        st.caption(
+            "El **1RM estimado** (fórmula de Epley) combina el peso y las repeticiones de la serie "
+            "más pesada de cada día en un solo número comparable entre sesiones, aunque no hayan usado "
+            "el mismo peso ni las mismas repeticiones — pasa el mouse sobre un punto para ver los datos reales."
+        )
     else:
-        st.caption("Este ejercicio no tiene peso registrado (a peso corporal o medido por duración).")
-
-    if df_ejercicio["volumen_total"].notna().any():
-        fig_vol = px.bar(
-            df_ejercicio, x="fecha", y="volumen_total",
-            labels={"fecha": "Fecha", "volumen_total": "Volumen total (kg)"},
-        )
-        fig_vol.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=250)
-        st.plotly_chart(theme.estilizar_grafico(fig_vol), use_container_width=True)
+        st.caption("Este ejercicio no tiene peso/repeticiones registrados en el periodo elegido (a peso corporal o medido por duración).")
 
 
 def _grafico_lineas(df: pd.DataFrame, columnas: dict[str, str]) -> None:

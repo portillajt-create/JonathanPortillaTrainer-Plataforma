@@ -270,16 +270,35 @@ def guardar_historial_entrenamientos(cliente_id: str, filas: list[dict[str, Any]
 
 
 def list_historial_entrenamientos(cliente_id: str) -> list[dict[str, Any]]:
-    """Historial de entrenamientos reales del cliente (una fila por día+ejercicio), ordenado por fecha."""
+    """
+    Historial de entrenamientos reales del cliente (una fila por día+ejercicio),
+    ordenado por fecha.
+
+    Se pagina en bloques de 1000: PostgREST (Supabase) limita cada request a
+    1000 filas por defecto, sin avisar — con varios años de historial real
+    importado (miles de filas), una sola llamada sin paginar devolvía
+    solo las 1000 filas más antiguas y las gráficas de progreso se veían
+    "cortadas" mucho antes de la fecha real más reciente.
+    """
     supabase = get_supabase_client()
-    resp = (
-        supabase.table("historial_entrenamientos")
-        .select("*")
-        .eq("cliente_id", cliente_id)
-        .order("fecha")
-        .execute()
-    )
-    return resp.data or []
+    TAMANO_PAGINA = 1000
+    filas: list[dict[str, Any]] = []
+    inicio = 0
+    while True:
+        resp = (
+            supabase.table("historial_entrenamientos")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .order("fecha")
+            .range(inicio, inicio + TAMANO_PAGINA - 1)
+            .execute()
+        )
+        pagina = resp.data or []
+        filas.extend(pagina)
+        if len(pagina) < TAMANO_PAGINA:
+            break
+        inicio += TAMANO_PAGINA
+    return filas
 
 
 def list_alertas_descartadas(tipo: str) -> set[tuple[str, str]]:
