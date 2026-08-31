@@ -11,7 +11,7 @@ admin pueda confiar en el motivo exacto que se le muestra.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 #: Si la última vez que se entrenó un ejercicio fue hace más de esto, se
 #: considera que ya no es parte de lo que el cliente está haciendo AHORA
@@ -19,18 +19,29 @@ from datetime import date
 #: interesan los ejercicios que sigue entrenando.
 SEMANAS_ACTIVO_MAX = 2
 
-#: Cuántas de las sesiones MÁS RECIENTES de un ejercicio se miran para
-#: juzgar si hubo progreso real. Se compara el promedio de la mitad más
-#: vieja contra la mitad más nueva de esta ventana (no la última sesión
-#: contra el mejor reciente) — comparar una sola sesión contra el mejor
-#: dato reciente marcaba como "estancado" cosas que son variación normal
-#: de entrenamiento (un día flojo, una sesión de técnica con menos peso,
-#: etc.), no un plateau real.
-VENTANA_SESIONES = 6
+#: La ventana para juzgar progreso se acota por TIEMPO (semanas hacia
+#: atrás desde hoy), no solo por cantidad de sesiones. Un ejercicio que
+#: se entrena poco seguido (cada 3-4 semanas, por ejemplo) podía tener
+#: sus "últimas 6 sesiones por cantidad" repartidas en más de un año —
+#: si meses atrás hubo una marca alta (una racha buena, un pico antes de
+#: una baja, etc.), comparar contra eso hacía ver como "sin progreso" una
+#: mejora real y reciente (ej. iba en 170 -> 180 -> 182 kg en las últimas
+#: semanas, pero se comparaba contra 200 kg de hace mucho más tiempo).
+SEMANAS_VENTANA_PROGRESO = 6
 
-#: Mínimo de sesiones (dentro de la ventana activa) para intentar juzgar
+#: Tope de sesiones dentro de esa ventana de tiempo, por si el ejercicio
+#: se entrena muy seguido (varias veces por semana) — no hace falta mirar
+#: más de esto para ver la tendencia.
+MAX_SESIONES_VENTANA = 8
+
+#: Mínimo de sesiones dentro de la ventana de tiempo para intentar juzgar
 #: progreso — con menos que esto no hay tendencia confiable que comparar.
-MIN_SESIONES_PROGRESO = 4
+#: Se compara el promedio de la mitad más vieja contra la mitad más nueva
+#: de esta ventana (no la última sesión contra el mejor reciente) —
+#: comparar una sola sesión contra el mejor dato reciente marcaba como
+#: "estancado" cosas que son variación normal de entrenamiento (un día
+#: flojo, una sesión de técnica con menos peso, etc.), no un plateau real.
+MIN_SESIONES_PROGRESO = 3
 
 #: Margen para no contar como "progreso" una diferencia que es solo ruido
 #: de redondeo del 1RM estimado (1%).
@@ -75,7 +86,9 @@ def detectar_ejercicios_a_revisar(historial: list[dict], hoy: date) -> list[dict
         if semanas_desde_ultima > SEMANAS_ACTIVO_MAX:
             continue
 
-        recientes = filas_ordenadas[-VENTANA_SESIONES:]
+        limite_ventana = hoy - timedelta(weeks=SEMANAS_VENTANA_PROGRESO)
+        recientes = [f for f in filas_ordenadas if date.fromisoformat(f["fecha"]) >= limite_ventana]
+        recientes = recientes[-MAX_SESIONES_VENTANA:]
         if len(recientes) < MIN_SESIONES_PROGRESO:
             continue
 
