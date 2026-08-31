@@ -245,6 +245,43 @@ def descartar_alerta(cliente_id: str, tipo: str, semana_referencia: str, descart
     supabase.table("alertas_descartadas").upsert(payload, on_conflict="cliente_id,tipo,semana_referencia").execute()
 
 
+def guardar_historial_entrenamientos(cliente_id: str, filas: list[dict[str, Any]]) -> int:
+    """
+    Upsert masivo del historial de entrenamientos importado de Hevy (ver
+    utils/hevy_import.py). Upsert por (cliente_id, fecha, ejercicio_nombre)
+    — el mismo que la unique constraint de la tabla — así reimportar el
+    mismo CSV (o uno más reciente que se solapa en fechas) actualiza en
+    vez de duplicar. Se manda en lotes: PostgREST tiene un límite práctico
+    de tamaño de payload por request y esto puede ser miles de filas.
+    """
+    if not filas:
+        return 0
+    supabase = get_supabase_client()
+    filas_con_cliente = [{**fila, "cliente_id": cliente_id} for fila in filas]
+    TAMANO_LOTE = 500
+    total = 0
+    for i in range(0, len(filas_con_cliente), TAMANO_LOTE):
+        lote = filas_con_cliente[i : i + TAMANO_LOTE]
+        supabase.table("historial_entrenamientos").upsert(
+            lote, on_conflict="cliente_id,fecha,ejercicio_nombre"
+        ).execute()
+        total += len(lote)
+    return total
+
+
+def list_historial_entrenamientos(cliente_id: str) -> list[dict[str, Any]]:
+    """Historial de entrenamientos reales del cliente (una fila por día+ejercicio), ordenado por fecha."""
+    supabase = get_supabase_client()
+    resp = (
+        supabase.table("historial_entrenamientos")
+        .select("*")
+        .eq("cliente_id", cliente_id)
+        .order("fecha")
+        .execute()
+    )
+    return resp.data or []
+
+
 def list_alertas_descartadas(tipo: str) -> set[tuple[str, str]]:
     supabase = get_supabase_client()
     resp = supabase.table("alertas_descartadas").select("cliente_id, semana_referencia").eq("tipo", tipo).execute()

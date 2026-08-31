@@ -292,7 +292,7 @@ def render_admin_shell() -> None:
     elif pagina == "Progreso":
         cliente_id = _selector_cliente()
         if cliente_id:
-            hevy_integration.render_progreso(cliente_id)
+            hevy_integration.render_admin(cliente_id)
 
     _render_pie_pagina()
 
@@ -349,7 +349,7 @@ def render_cliente_shell() -> None:
     elif pagina == "Mi Entrenamiento":
         rutinas.render_cliente(cliente_id)
     elif pagina == "Mi Progreso":
-        hevy_integration.render_progreso(cliente_id)
+        hevy_integration.render_cliente(cliente_id)
     elif pagina == "Check-in Semanal":
         checkin.render_checkin_cliente(cliente_id)
     elif pagina == "Mis Notificaciones":
