@@ -162,12 +162,16 @@ def _render_form_semana(cliente_id: str, lunes: date, etiqueta: str) -> None:
     guardado = get_checkin_semana(cliente_id, lunes) or {}
     rango = _rango_semana(lunes)
 
-    if guardado:
-        st.success(f"✅ Ya reportaste la semana del {rango}. Puedes actualizarla si algo cambió.")
-    elif etiqueta == "Semana pasada":
-        st.warning(f"⏳ Te falta reportar la semana del {rango}. Tienes hasta el domingo para hacerlo.")
-    else:
-        st.info(f"Semana del {rango}, todavía en curso. Puedes adelantarla si ya sabes cómo te fue.")
+    # Los avisos de "te falta" / "en curso" van ARRIBA porque son una
+    # instrucción: dicen qué hacer antes de tocar el formulario. El de "ya
+    # reportaste" va ABAJO, después del botón (ver más abajo), porque no es
+    # una instrucción sino una confirmación: es lo que el cliente necesita
+    # ver justo donde acaba de hacer clic al guardar.
+    if not guardado:
+        if etiqueta == "Semana pasada":
+            st.warning(f"⏳ Te falta reportar la semana del {rango}. Tienes hasta el domingo para hacerlo.")
+        else:
+            st.info(f"Semana del {rango}, todavía en curso. Puedes adelantarla si ya sabes cómo te fue.")
 
     sufijo = lunes.isoformat()
     with st.form(f"checkin_form_{sufijo}"):
@@ -201,6 +205,9 @@ def _render_form_semana(cliente_id: str, lunes: date, etiqueta: str) -> None:
         )
 
         submitted = st.form_submit_button("💾 Guardar check-in", use_container_width=True, type="primary")
+
+    if guardado:
+        st.success(f"✅ Ya reportaste la semana del {rango}. Puedes actualizarla si algo cambió.")
 
     if submitted:
         upsert_checkin(
