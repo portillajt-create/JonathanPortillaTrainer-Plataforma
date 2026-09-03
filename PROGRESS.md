@@ -1,6 +1,6 @@
 # PROGRESS.md — Jonathan Portilla Trainer
 
-> Estado del proyecto al **2026-09-02**. Último commit: `8135f05`. Árbol de trabajo limpio, todo pusheado a `main`.
+> Estado del proyecto al **2026-09-02**. Árbol de trabajo limpio, todo pusheado a `main`.
 
 ---
 
@@ -54,7 +54,7 @@ El cliente ve las mismas gráficas de progreso que el admin, **pero no el import
 
 **Nada a medias.** Todo commiteado, pusheado y confirmado por el usuario. `git status` limpio.
 
-Arco de la última sesión (commits `6d92e13` → `8135f05`), por si hace falta contexto:
+Arco de las últimas sesiones, por si hace falta contexto:
 
 1. `6d92e13` — **Regresión propia corregida**: al agregar las flechas de mover día (commit anterior), el expander quedó anidado en una columna de 14/16 de ancho; eso achicaba todo lo de adentro y Streamlit **esconde los botones +/- de un `number_input` cuando queda muy angosto** (desaparecieron en Series y Descanso). Se movieron las flechas a su propia fila **arriba** del expander. Mismo commit: default `RIR 2` → `RPE 8`.
 2. `78988d4` / `d2dad1f` — RPE pasa de texto libre a `st.segmented_control` con 4 rangos fijos (`RANGOS_RPE` en `rutinas.py:60`), título "RPE", `width="stretch"` para que no se vea cortado. Valores viejos que no calzan (ej. "RIR 2") se muestran con el default preseleccionado, no rompen.
@@ -62,6 +62,7 @@ Arco de la última sesión (commits `6d92e13` → `8135f05`), por si hace falta 
 4. `6791820` — Decisión del usuario: se **desiste definitivamente** de sincronizar Hevy en automático. El aviso de "pendiente" ahora solo sale si el cliente no tiene historial cargado.
 5. `c8ee39e` — **Bug real de paginación** (ver §4) + tabla "Ejercicios a tener en cuenta" + 1RM estimado + filtro de periodo + se elimina la gráfica de volumen.
 6. `b108083` / `8135f05` — Dos correcciones de metodología a la detección de estancamiento, ambas señaladas por el usuario (ver §4).
+7. **Último cambio** — El uploader de Hevy deja de exigir la extensión `.csv` (§4), que era el paso manual que frenaba importar el historial del resto de los clientes; y el `st.info` de Entrenamiento deja de decir que la alerta de estancamiento está "pendiente porque no existe historial", cosa que dejó de ser cierta hace varios commits (ahora apunta a Progreso, donde el análisis ya se ve).
 
 ---
 
@@ -84,6 +85,7 @@ El scraping/API automática **se descartó definitivamente** (decisión explíci
   - `volumen_total` = suma de peso × reps de todas las series de trabajo.
   - Fechas en español (`"30 ago 2026, 12:51"`) se parsean con un dict de meses propio — el locale del sistema no es confiable multiplataforma.
 - El upsert es por `(cliente_id, fecha, ejercicio_nombre)`, así que **reimportar el mismo CSV no duplica**, actualiza.
+- **El `st.file_uploader` va sin `type=["csv"]` a propósito — no re-agregarlo.** El archivo que descarga Hevy no trae la extensión `.csv` en el nombre, así que el filtro lo rechazaba y obligaba a renombrarlo a mano en cada importación de cada cliente. El filtro tampoco validaba nada real: quien decide si el archivo sirve es `parsear_csv_hevy()`, que exige las columnas de Hevy y devuelve un error claro nombrando las que falten. Verificado en local con el CSV real sin extensión (4.993 registros, 135 ejercicios, 692 días, 0 omitidas) y con un archivo cualquiera sin extensión, que se sigue rechazando por contenido.
 - Verificado con el CSV real: 16.666 series → 4.993 registros agregados, 135 ejercicios, 692 días, 0 filas omitidas.
 
 ### 1RM estimado (fórmula de Epley) como métrica central
@@ -160,13 +162,15 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 **`session_state`:** las claves se namespacean con el `cliente_id` → `f"rutina_bloques_{cliente_id}"`. *Por qué:* al cambiar de cliente en el selector, el estado de uno no debe filtrarse al otro.
 
 **Flujo de trabajo acordado (no re-preguntar):**
-1. Editar código
-2. `python3 -m py_compile <archivos>` — siempre antes de commitear
-3. Probar en local con servidor de desarrollo (ver §7 para el patrón)
-4. **Confirmación explícita del usuario**
+1. **El usuario confirma qué se va a hacer** — ese es el único punto de aprobación
+2. Editar código
+3. `python3 -m py_compile <archivos>` — siempre antes de commitear
+4. Probar en local con servidor de desarrollo (ver §7 para el patrón)
 5. `git commit` + `git push origin main` → Streamlit Cloud redespliega solo
 
-**Commits:** mensaje en español, cuerpo que explica el porqué y los números de verificación, cerrando con `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+> **La confirmación va al principio, no al final.** Una vez que el usuario aprobó la decisión, la tarea se ejecuta completa **hasta el despliegue**, sin una segunda pregunta de "¿le doy push?". Motivo: pedir permiso otra vez al final dejaba el cambio muerto en el disco local mientras el usuario ya lo daba por hecho y veía la app en vivo sin cambios (pasó exactamente eso). Reportar al final qué quedó desplegado, no pedir permiso para desplegarlo.
+
+**Commits:** mensaje en español, cuerpo que explica el porqué y los números de verificación, cerrando con `Co-Authored-By: Claude <modelo> <noreply@anthropic.com>` (el modelo que efectivamente hizo el cambio — hay commits de Sonnet 5 y de Opus 5).
 
 **SQL:** no hay acceso directo a la base de datos. Los cambios de esquema se le entregan al usuario como **bloques SQL listos para pegar** en el SQL Editor de Supabase; él los corre y confirma.
 
@@ -176,8 +180,11 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 
 ## 6. Pendientes / próximos pasos (por prioridad)
 
-1. **Alerta de estancamiento en cargas** — hay un `st.info` de "pendiente" visible en Entrenamiento (`rutinas.py:142`) que dice que hace falta `historial_entrenamientos`. **Ya no es cierto: la tabla tiene datos y `detectar_ejercicios_a_revisar()` ya hace exactamente ese análisis.** Falta solo conectarlo: llamar esa función desde `render_alertas_entrenamiento()` y reemplazar el `st.info` por la alerta real. Es la tarea más rentable que queda.
-2. **Importar el historial del resto de los clientes** — el flujo ya funciona; es operativo, no de código. Ojo con el gotcha del nombre de archivo (§7).
+1. **Importar el historial del resto de los clientes** — hoy **solo el cliente de prueba tiene historial cargado**; los otros 7 no. El flujo ya funciona y ya no exige renombrar el archivo (§4), así que es puramente operativo: el usuario le pide el CSV a cada cliente y lo sube en Progreso. **Esto bloquea el punto 2**, así que va primero.
+2. **Traer la tabla de estancamiento a la página Entrenamiento** — `detectar_ejercicios_a_revisar()` ya corre y **ya se ve en Progreso** (`_render_ejercicios_a_revisar`); lo que falta es mostrarla también junto al editor de rutina, que es donde el entrenador actúa sobre el hallazgo. **Diferido a propósito hasta tener historial de más clientes** (con uno solo no se puede juzgar si la lista es útil). Decisiones ya tomadas con el usuario, no volver a preguntarlas:
+   - **Por cliente seleccionado**, dentro de `render_admin` — *no* un barrido global como el deload. Motivo: `render_alertas_entrenamiento()` corre antes del selector y recorrería a todos los clientes, y cada uno son ~5.000 filas en 5 requests paginados; la página se volvería lenta a cambio de poco.
+   - **Solo informativa**: sin botón de notificar al cliente (decirle "llevas semanas sin progresar" desmotiva; esa conversación la maneja el entrenador) y sin botón de descartar.
+   - El `st.info` de Entrenamiento ya **no** dice "pendiente": ahora apunta a dónde vive el análisis hoy.
 3. **CAPTCHA en login y registro** — diferido explícitamente por el usuario. Hallazgo de auditoría: hoy no hay protección contra fuerza bruta ni registro automatizado. Supabase lo soporta nativo (Authentication → Settings → Bot Protection); es principalmente configuración.
 4. **Cabeceras HTTP de seguridad** (CSP, HSTS, X-Frame-Options) — **no se puede** en Streamlit Community Cloud; requeriría proxy/hosting propio. Diferido conscientemente.
 5. **Residual menor del generador de dieta** — ~50 de 6000 alimentos revisados salen con 5 g en vez de 10 g de frutos secos, solo en el bloque de Snack. Se baja subiendo `intentos` o ajustando `MINIMO_GRAMOS`.
@@ -188,7 +195,6 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 
 | Tema | Detalle |
 |---|---|
-| **CSV de Hevy sin extensión** | El archivo que descarga Hevy **no trae `.csv`** en el nombre, y `st.file_uploader(type=["csv"])` lo rechaza con un ícono rojo. Hay que renombrarlo agregándole `.csv` antes de subirlo. Le va a pasar con **cada** cliente. |
 | **Nombres de ejercicio cambian con el tiempo** | Si el cliente renombró un ejercicio en Hevy, el historial queda partido en dos entradas distintas del selector. **No se hace merge automático a propósito**: "Press de Banca" y "Press de Banca Inclinado" son ejercicios distintos y agruparlos por parecido sería peor que el problema. |
 | **Cabeceras HTTP** | Limitación de plataforma de Streamlit Community Cloud, no del código. |
 | **Pruebas contra producción** | Automatizar el navegador contra `jonathanportillatrainer.streamlit.app` **no es confiable**: Streamlit Cloud envuelve la app en un iframe sandbox (`/~/+/`) que no existe en local, y las capturas fallan por `document.visibilityState === "hidden"`. **Probar siempre en local.** |

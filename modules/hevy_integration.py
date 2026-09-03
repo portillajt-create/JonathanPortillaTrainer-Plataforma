@@ -74,10 +74,19 @@ def _render_importar_hevy(cliente_id: str) -> None:
         st.caption(
             "El cliente puede exportar su historial completo desde la app de Hevy "
             "(Perfil → Configuración → Exportar datos) y descargar un archivo CSV. "
-            "Súbelo acá para cargar su historial real de entrenamientos — no reemplaza "
+            "Súbelo acá tal como te lo pasó — no hace falta renombrarlo. No reemplaza "
             "nada, solo agrega/actualiza lo que traiga el archivo."
         )
-        archivo = st.file_uploader("Archivo CSV de Hevy", type=["csv"], key=f"hevy_csv_{cliente_id}")
+        # Sin type=["csv"] a propósito: el archivo que descarga Hevy NO trae la
+        # extensión .csv en el nombre, así que el filtro por extensión lo
+        # rechazaba con un ícono rojo y obligaba a renombrarlo a mano antes de
+        # cada importación — con cada cliente y cada vez. El filtro tampoco
+        # aportaba una validación real: lo que decide si el archivo sirve es
+        # parsear_csv_hevy(), que exige las columnas de la exportación de Hevy
+        # y devuelve un error claro si faltan. Un archivo equivocado se sigue
+        # rechazando igual (ahí abajo), solo que por su contenido y no por
+        # cómo se llame.
+        archivo = st.file_uploader("Archivo CSV de Hevy", key=f"hevy_csv_{cliente_id}")
         if archivo is None:
             return
 

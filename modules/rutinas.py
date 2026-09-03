@@ -2,10 +2,10 @@
 Módulo de Entrenamiento (Rutinas) — Paso 4.
 
   - render_alertas_entrenamiento: alertas de la página "Entrenamiento"
-    (deload, reusando checkin.render_alertas_deload; y la nota de
-    "estancamiento en cargas" pendiente). Se muestra siempre, sin
-    depender de qué cliente esté seleccionado — mismo patrón que los
-    vencimientos en Gestión de Clientes.
+    (deload, reusando checkin.render_alertas_deload; y el puntero al
+    análisis de estancamiento que hoy vive en "Progreso"). Se muestra
+    siempre, sin depender de qué cliente esté seleccionado — mismo patrón
+    que los vencimientos en Gestión de Clientes.
   - render_admin: constructor flexible de bloques de entrenamiento
     (día, ejercicio, músculo priorizado, series, repeticiones, RPE/RIR,
     descanso, notas técnicas) para el cliente seleccionado. Los bloques
@@ -138,11 +138,20 @@ def _mover_dia(cliente_id: str, bloques: list[dict[str, Any]], dia: str, direcci
 
 def render_alertas_entrenamiento() -> None:
     checkin.render_alertas_deload()
+    # Este aviso decía que la alerta de estancamiento estaba "pendiente"
+    # porque no existía historial de cargas y la integración con Hevy estaba
+    # pausada. Las dos cosas dejaron de ser ciertas: el historial se importa
+    # por CSV (ver modules/hevy_integration.py) y detectar_ejercicios_a_revisar()
+    # ya hace el análisis, visible en "Progreso" para cada cliente que tenga
+    # su historial cargado. Falta traer esa tabla también acá, junto al editor
+    # de rutina; queda para cuando haya historial importado de más clientes.
+    # Decidido con el usuario: cuando se haga, va por cliente SELECCIONADO
+    # (no un barrido global como el deload, que traería miles de filas de cada
+    # cliente en cada carga de la página) y es solo informativa — sin botón de
+    # notificar al cliente ni de descartar.
     st.info(
-        "⏳ Alerta de estancamiento en cargas (3+ semanas sin progresar peso levantado): pendiente. "
-        "Requiere un historial de cargas por ejercicio (historial_entrenamientos) que hoy no existe — "
-        "depende de la integración con Hevy, pausada en el Paso 5 porque su API pública exige "
-        "autenticación incluso para perfiles públicos."
+        "💡 Los ejercicios que un cliente sigue entrenando pero **sin progreso real de fuerza** "
+        "se listan en **Progreso**, para cada cliente que ya tenga su historial de Hevy importado."
     )
 
 
