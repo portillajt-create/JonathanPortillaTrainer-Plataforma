@@ -21,7 +21,8 @@ No es un SaaS multi-entrenador: hay **un** admin y N clientes.
 ### Autenticación
 - Login / registro de clientes (auto-servicio), logout.
 - Recuperación de contraseña por correo (flujo `token_hash` vía `st.query_params`).
-- Confirmación de correo **desactivada** a propósito: el cliente entra apenas se registra.
+- Confirmación de correo **ACTIVA**: al registrarse, el cliente recibe un enlace y debe abrirlo antes de poder iniciar sesión. Lo confirmó el usuario el 2026-09-02, y `auth/v1/settings` del proyecto reporta `mailer_autoconfirm: false`. *(Este documento afirmó lo contrario durante un tiempo — era un error del documento, no del código: `signup_cliente()` siempre avisó que hay que confirmar, `mensaje_error_auth()` traduce el error "not confirmed" y `complete_email_confirmation()` procesa el token `type=signup`.)*
+  - Requiere que la plantilla **"Confirm signup"** de Supabase apunte a `.../?token_hash={{ .TokenHash }}&type=signup`, no a `{{ .ConfirmationURL }}` — ver `utils/auth.py:104`.
 - SMTP propio configurado en Supabase (Gmail + App Password).
 - Roles `admin` / `cliente` en `public.clientes.rol`.
 
