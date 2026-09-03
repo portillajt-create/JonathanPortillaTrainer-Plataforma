@@ -177,10 +177,19 @@ comment on table public.rutinas is 'Rutinas asignadas por el entrenador; "bloque
 
 -- =====================================================================
 -- 7. TABLA: historial_entrenamientos
---    Datos REALES levantados por el cliente, obtenidos por scraping del
---    perfil público de Hevy (Paso 5). Es de solo lectura para el cliente;
---    el proceso de scraping corre en el backend con la service_role key,
---    que ignora RLS por diseño.
+--    Datos REALES levantados por el cliente. Es de solo lectura para el
+--    cliente: los escribe el ADMIN desde la app, importando el CSV que
+--    Hevy exporta (ver utils/hevy_import.py), con su propia sesión — así
+--    que RLS aplica con su identidad de admin.
+--
+--    NOTA: el diseño original de esta tabla asumía un scraper del perfil
+--    público de Hevy corriendo en un backend con la service_role key. Ese
+--    scraper NUNCA se construyó y se descartó a propósito (la API de Hevy
+--    exige autenticación incluso para perfiles públicos; rodearla sería
+--    saltarse un control de acceso suyo). No hay ningún backend ni ninguna
+--    service_role key en este proyecto: la app solo usa la clave
+--    publicable. Los rastros de esa idea sobreviven en el nombre del
+--    default de "fuente".
 -- =====================================================================
 create table if not exists public.historial_entrenamientos (
     id                  uuid primary key default gen_random_uuid(),
@@ -191,12 +200,18 @@ create table if not exists public.historial_entrenamientos (
     series              int,
     repeticiones        int,
     volumen_total       numeric,   -- peso_kg * series * repeticiones (calculado al insertar)
+    -- El default dice 'hevy_scraping' por el diseño original (ver nota
+    -- arriba) y se deja TAL CUAL a propósito: cambiarlo obligaría a correr
+    -- un ALTER en la base para que el archivo siga reflejando la realidad,
+    -- a cambio de nada — el importador de CSV siempre manda
+    -- fuente='hevy_csv_import' explícitamente, así que este default no lo
+    -- usa ninguna fila.
     fuente              text not null default 'hevy_scraping',
     created_at          timestamptz not null default now(),
     unique (cliente_id, fecha, ejercicio_nombre)
 );
 
-comment on table public.historial_entrenamientos is 'Entrenamientos reales extraídos del perfil público de Hevy';
+comment on table public.historial_entrenamientos is 'Entrenamientos reales del cliente, importados por el admin desde el CSV que exporta la app de Hevy';
 
 -- =====================================================================
 -- 8. TABLA: notificaciones
@@ -525,8 +540,8 @@ grant execute on function public.crear_notificacion_sistema(text, text, text, bo
 --   - Cliente: solo puede ver/tocar sus propias filas (cliente_id = auth.uid())
 --   - Tablas de "solo lectura para el cliente" (suscripciones, dietas,
 --     rutinas, historial_entrenamientos) no tienen policy de insert/update/
---     delete para clientes: solo el admin (o el backend con service_role
---     para el scraping de Hevy) puede escribir en ellas.
+--     delete para clientes: solo el admin puede escribir en ellas, desde la
+--     app y con su propia sesión.
 -- =====================================================================
 
 alter table public.clientes                 enable row level security;
@@ -618,10 +633,11 @@ create policy rutinas_admin_write on public.rutinas
     for all using (public.is_admin()) with check (public.is_admin());
 
 -- ---------- historial_entrenamientos (cliente solo lee el suyo) ----------
--- El scraper de Hevy (Paso 5) corre en el backend con la service_role key,
--- que por diseño de Supabase se salta RLS, así que no necesita policy de
--- insert aquí. Dejamos también la vía de admin por si se necesita
--- corregir datos manualmente desde el panel.
+-- El historial lo escribe el ADMIN desde la app (importando el CSV de
+-- Hevy), con su propia sesión, así que la policy historial_admin_write de
+-- abajo es la única vía de escritura y RLS aplica con su identidad. No hay
+-- ningún backend con service_role saltándose RLS por detrás: ese scraper
+-- se descartó y nunca existió (ver la nota de la tabla, más arriba).
 drop policy if exists historial_select on public.historial_entrenamientos;
 create policy historial_select on public.historial_entrenamientos
     for select using (cliente_id = auth.uid() or public.is_admin());

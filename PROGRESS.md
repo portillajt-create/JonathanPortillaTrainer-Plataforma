@@ -48,6 +48,7 @@ El cliente ve las mismas gráficas de progreso que el admin, **pero no el import
 - **Check-in semanal**: el cliente reporta la semana **ya cerrada**, con recordatorio automático.
 - **Centro de notificaciones** in-app + correo opcional.
 - **Dos auditorías de seguridad OWASP completas** (una con Sonnet, otra con Opus) con todos los hallazgos Crítico/Alto/Medio/Bajo corregidos, salvo los dos diferidos (ver §6-§7).
+- **Verificación de exposición del repo público (2026-09-02)** — sin hallazgos. Se comprobó: ninguna credencial en el árbol actual **ni en ningún commit del historial** (búsqueda de JWT / `sb_secret_` / `sb_publishable_` / URLs de proyecto); `.env` y `secrets.toml` nunca se commitearon; ningún dato de cliente versionado (los PDFs y CSVs viven en OneDrive, fuera del repo); lectura anónima vía API REST devuelve vacío en las 10 tablas y vistas; escritura anónima rechazada con `42501` (probado por el usuario en el SQL Editor con `set role anon`); el catálogo OpenAPI del esquema exige clave secreta. **Sin verificar todavía:** que un cliente autenticado no pueda leer los datos de OTRO cliente — las políticas se leyeron y son correctas (`cliente_id = auth.uid() or is_admin()`), pero exigiría crear cuentas de prueba y entrar con ellas.
 
 ---
 
@@ -186,9 +187,10 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
    - **Por cliente seleccionado**, dentro de `render_admin` — *no* un barrido global como el deload. Motivo: `render_alertas_entrenamiento()` corre antes del selector y recorrería a todos los clientes, y cada uno son ~5.000 filas en 5 requests paginados; la página se volvería lenta a cambio de poco.
    - **Solo informativa**: sin botón de notificar al cliente (decirle "llevas semanas sin progresar" desmotiva; esa conversación la maneja el entrenador) y sin botón de descartar.
    - El `st.info` de Entrenamiento ya **no** dice "pendiente": ahora apunta a dónde vive el análisis hoy.
-3. **CAPTCHA en login y registro** — diferido explícitamente por el usuario. Hallazgo de auditoría: hoy no hay protección contra fuerza bruta ni registro automatizado. Supabase lo soporta nativo (Authentication → Settings → Bot Protection); es principalmente configuración.
-4. **Cabeceras HTTP de seguridad** (CSP, HSTS, X-Frame-Options) — **no se puede** en Streamlit Community Cloud; requeriría proxy/hosting propio. Diferido conscientemente.
-5. **Residual menor del generador de dieta** — ~50 de 6000 alimentos revisados salen con 5 g en vez de 10 g de frutos secos, solo en el bloque de Snack. Se baja subiendo `intentos` o ajustando `MINIMO_GRAMOS`.
+3. **CAPTCHA en login y registro** — **NO activar hasta nuevo aviso** (decisión del usuario, 2026-09-02; ya se le explicó el riesgo dos veces, no volver a proponerlo). Riesgo asumido a conciencia: hoy no hay protección contra fuerza bruta ni registro automatizado, así que cualquiera puede crear cuentas en masa. No expone datos de nadie (RLS aguanta), pero puede llenar la base de basura. Cuando el usuario lo pida: Supabase lo soporta nativo en Authentication → Settings → Bot Protection; es principalmente configuración.
+4. **Pasar el repo de GitHub a privado** — abierto, sin decidir. No hay ninguna fuga que tapar (§2), así que es defensa en profundidad: hoy cualquiera puede leer el esquema completo con todas las políticas RLS y las funciones `security definer`, o sea el mapa para buscarle un hueco. En contra: nada — 0 forks, 0 watchers, no se usa como portafolio. **Antes de hacerlo hay que confirmar que Streamlit Community Cloud siga desplegando**: soporta repos privados, pero exige permisos extra de GitHub y el plan gratuito limita cuántas apps privadas se pueden tener.
+5. **Cabeceras HTTP de seguridad** (CSP, HSTS, X-Frame-Options) — **no se puede** en Streamlit Community Cloud; requeriría proxy/hosting propio. Diferido conscientemente.
+6. **Residual menor del generador de dieta** — ~50 de 6000 alimentos revisados salen con 5 g en vez de 10 g de frutos secos, solo en el bloque de Snack. Se baja subiendo `intentos` o ajustando `MINIMO_GRAMOS`.
 
 ---
 
