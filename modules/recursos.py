@@ -58,11 +58,6 @@ GLOSARIO: list[tuple[str, str]] = [
         "RPE 8 de un 8.2 — un rango es más fácil de estimar en el momento y sigue siendo útil.",
     ),
     (
-        "RIR (Repeticiones en Reserva)",
-        "La otra cara del RPE: cuántas repeticiones más podrías haber hecho antes de fallar. RIR 2 y "
-        "RPE 8 son, en la práctica, la misma idea vista desde dos lados.",
-    ),
-    (
         "1RM estimado",
         "Cuánto podrías levantar a una sola repetición, calculado a partir de un peso y unas repeticiones "
         "reales (fórmula de Epley: peso × (1 + repeticiones/30)). Sirve para comparar el esfuerzo entre "

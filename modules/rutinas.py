@@ -7,7 +7,7 @@ Módulo de Entrenamiento (Rutinas) — Paso 4.
     siempre, sin depender de qué cliente esté seleccionado — mismo patrón
     que los vencimientos en Gestión de Clientes.
   - render_admin: constructor flexible de bloques de entrenamiento
-    (día, ejercicio, músculo priorizado, series, repeticiones, RPE/RIR,
+    (día, ejercicio, músculo priorizado, series, repeticiones, RPE,
     descanso, notas técnicas) para el cliente seleccionado. Los bloques
     se guardan como JSON en "rutinas.bloques" — no hay un número fijo de
     ejercicios, el admin agrega/quita los que necesite. Cada día vive en
@@ -483,7 +483,7 @@ def render_cliente(cliente_id: str) -> None:
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Series", ejercicio.get("series") if ejercicio.get("series") is not None else "—")
                 col2.metric("Reps", ejercicio.get("repeticiones") or "—")
-                col3.metric("RPE/RIR", ejercicio.get("rpe_rir") or "—")
+                col3.metric("RPE", ejercicio.get("rpe_rir") or "—")
                 col4.metric("Descanso", f"{_formatear_minutos(ejercicio.get('descanso_min'))} min")
                 if ejercicio.get("notas"):
                     st.caption(f"📝 {ejercicio['notas']}")
