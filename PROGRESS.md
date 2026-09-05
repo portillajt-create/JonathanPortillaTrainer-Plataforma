@@ -26,7 +26,7 @@ No es un SaaS multi-entrenador: hay **un** admin y N clientes.
 - SMTP propio configurado en Supabase (Gmail + App Password).
 - Roles `admin` / `cliente` en `public.clientes.rol`.
 
-### Lado ADMIN (5 páginas, `ADMIN_PAGINAS` en `app.py:251`)
+### Lado ADMIN (6 páginas, `ADMIN_PAGINAS` en `app.py:251`)
 | Página | Qué hace |
 |---|---|
 | Gestión de Clientes | Alta/baja de clientes, suscripciones (Mensual/Trimestral/Semestral con vencimiento auto-calculado), alertas de vencimiento, eliminar cliente |
@@ -34,11 +34,12 @@ No es un SaaS multi-entrenador: hay **un** admin y N clientes.
 | Nutrición y Macros | Calculadora TDEE + macros interactiva, generador de dieta de ejemplo, notas automáticas |
 | Entrenamiento | Constructor de rutinas por día (1-7), generador de rutina de ejemplo, reordenar ejercicios **y días completos**, RPE por rangos, gráfico de volumen por músculo |
 | Progreso | **Importador de CSV de Hevy** + tabla de ejercicios estancados + gráfica de 1RM estimado por ejercicio + gráficas de check-in |
+| Guías y Recursos | Biblioteca de consulta: política de datos + términos, videos guía, glosario de conceptos (ver §4) |
 
-### Lado CLIENTE (6 páginas, `CLIENTE_PAGINAS` en `app.py:303`)
-Mis Notificaciones · Mi Perfil (onboarding) · Mi Dieta · Mi Entrenamiento · Mi Progreso · Check-in Semanal
+### Lado CLIENTE (7 páginas, `CLIENTE_PAGINAS` en `app.py:303`)
+Mis Notificaciones · Mi Perfil (onboarding) · Mi Dieta · Mi Entrenamiento · Mi Progreso · Check-in Semanal · Guías y Recursos
 
-El cliente ve las mismas gráficas de progreso que el admin, **pero no el importador de CSV** (`render_admin` vs `render_cliente` en `modules/hevy_integration.py:55` y `:62`).
+El cliente ve las mismas gráficas de progreso que el admin, **pero no el importador de CSV** (`render_admin` vs `render_cliente` en `modules/hevy_integration.py:55` y `:62`). "Guías y Recursos" es la única página que renderiza igual para los dos roles (`modules/recursos.py:render()`, sin `cliente_id`) — no hay nada ahí que dependa de qué cliente esté logueado.
 
 ### Funcionalidades destacadas ya terminadas
 - **Generador de dieta de ejemplo** (`utils/plan_alimentario.py`): ~25 alimentos con opciones colombianas, respeta alergias del onboarding, rota alimentos entre generaciones, porciones realistas, desvío máximo medido de **~4-5 g** sobre el objetivo de macros.
@@ -64,7 +65,11 @@ Arco de las últimas sesiones, por si hace falta contexto:
 4. `6791820` — Decisión del usuario: se **desiste definitivamente** de sincronizar Hevy en automático. El aviso de "pendiente" ahora solo sale si el cliente no tiene historial cargado.
 5. `c8ee39e` — **Bug real de paginación** (ver §4) + tabla "Ejercicios a tener en cuenta" + 1RM estimado + filtro de periodo + se elimina la gráfica de volumen.
 6. `b108083` / `8135f05` — Dos correcciones de metodología a la detección de estancamiento, ambas señaladas por el usuario (ver §4).
-7. **Último cambio** — El uploader de Hevy deja de exigir la extensión `.csv` (§4), que era el paso manual que frenaba importar el historial del resto de los clientes; y el `st.info` de Entrenamiento deja de decir que la alerta de estancamiento está "pendiente porque no existe historial", cosa que dejó de ser cierta hace varios commits (ahora apunta a Progreso, donde el análisis ya se ve).
+7. El uploader de Hevy deja de exigir la extensión `.csv`, que era el paso manual que frenaba importar el historial del resto de los clientes; y el `st.info` de Entrenamiento deja de decir que la alerta de estancamiento está "pendiente porque no existe historial", cosa que dejó de ser cierta hace varios commits (ahora apunta a Progreso, donde el análisis ya se ve).
+8. Se corrige un dato erróneo en este mismo documento: la confirmación de correo al registrarse SÍ está activa (nunca estuvo desactivada; era un error del documento, no del código).
+9. Limpieza del esquema SQL: se quitan los rastros de un scraper de Hevy que nunca se llegó a construir (el historial siempre lo importa el admin desde la app, con su propia sesión), y se borra una copia vieja y obsoleta de `001_schema_roles_rls.sql` que vivía fuera del repo.
+10. El banner "Ya reportaste la semana..." del check-in se mueve de arriba del formulario a debajo del botón "Guardar check-in" (pedido del usuario) — es una confirmación, no una instrucción, así que va donde el cliente acaba de hacer clic.
+11. **Último cambio** — Página nueva "Guías y Recursos", al final de la navegación de ambos roles (ver §4 para el detalle completo): política de datos + términos (movidos a `utils/legal.py`, ya no duplicados), videos guía (pendientes de subir a YouTube, ver §6), glosario de 10 conceptos que la plataforma ya usa.
 
 ---
 
@@ -107,6 +112,15 @@ Está en `utils/analisis_progreso.py`. Vale la pena leer las 3 versiones porque 
    - Resultado con datos reales: de 24 marcados → **1**, y se verificó a mano que el resto sí venía mejorando.
 
 > Si esta lista vuelve a salir muy larga o muy corta, el ajuste va en esas constantes — no en la lógica.
+
+### "Guías y Recursos" (`modules/recursos.py`) — biblioteca de consulta, 2026-09-05
+Página nueva, al final de la navegación de ambos roles (pedido explícito del usuario: "debe salirle al final tanto al cliente como a mi admin"). Tres desplegables, en este orden: política de datos + términos, videos guía, glosario.
+
+- **El texto legal se movió a `utils/legal.py`**, no se duplicó. Antes vivía solo en `app.py` (pantalla de registro); el usuario pidió que también se pudiera consultar después de tener cuenta, así que ahora ambos lados importan las mismas dos constantes (`AVISO_TRATAMIENTO_DATOS`, `TERMINOS_CONDICIONES`). Ni una palabra del texto cambió al moverlo.
+- **Videos alojados en YouTube como "no listado"**, decisión del usuario tras comparar opciones. Los archivos (`GUIA 1.mp4` y `GUIA 2.mp4`, en la carpeta del proyecto fuera de `jp_trainer_dashboard/`) pesan 32 y 34 MB. *Por qué no van al repo:* un binario de ese tamaño en git infla el historial para siempre, incluso si se borra después. *Por qué no van a Supabase Storage:* el plan gratuito tiene un tope de banda mensual ajustado, y varios clientes viendo 30+ MB cada uno lo agotaría rápido. YouTube no listado es gratis, sin límite real de banda, y solo lo ve quien tenga el link.
+  - **PENDIENTE: subir los 2 videos y pegar sus links.** `VIDEOS_GUIA` en `recursos.py:29` tiene `url=None` para ambos — mientras tanto la página muestra "🎬 Video en camino" en vez de romper. En cuanto el usuario suba `GUIA 1.mp4` (exportar historial de Hevy) y `GUIA 2.mp4` (usar la plataforma) a YouTube como no listado y pase los links, se reemplazan esos dos `None` y se pushea.
+- **El glosario es un borrador inicial**, mismo criterio que los generadores de dieta/rutina: sirve para arrancar, pero el usuario debe revisarlo y ajustarlo a como él mismo explica estos conceptos. Son 10 términos que la propia plataforma ya usa activamente (RPE, RIR, 1RM estimado, deload, adherencia, TDEE...) — se redactaron para calzar con el mismo sentido que tienen en `utils/analisis_progreso.py` y `modules/rutinas.py`, no como definiciones de manual genérico.
+- **Qué se descartó de la referencia que trajo el usuario** (un documento de otro coach, de powerlifting): talleres grabados de psicología/nutrición deportiva y el "convenio SD TEAM" no aplican — es contenido y acuerdos comerciales de ese otro negocio, no del usuario. Los consejos técnicos de levantamiento (sentadilla, cinturón, straps) se dejaron fuera por ahora, no porque no apliquen sino porque hoy no hay contenido propio del usuario que poner ahí — categoría fácil de agregar cuando lo tenga.
 
 ### Los generadores son por reglas, NO por IA
 Decisión explícita del usuario tras conocer el costo real de la API. Ambos generadores usan diccionarios + regex por palabras clave. *Por qué importa:* cero costo por uso, cero latencia, determinista y auditable. **La UI siempre avisa que es interpretación por palabras clave, no IA**, y pide revisar antes de guardar — mantener ese aviso.
@@ -182,15 +196,16 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 
 ## 6. Pendientes / próximos pasos (por prioridad)
 
-1. **Importar el historial del resto de los clientes** — hoy **solo el cliente de prueba tiene historial cargado**; los otros 7 no. El flujo ya funciona y ya no exige renombrar el archivo (§4), así que es puramente operativo: el usuario le pide el CSV a cada cliente y lo sube en Progreso. **Esto bloquea el punto 2**, así que va primero.
-2. **Traer la tabla de estancamiento a la página Entrenamiento** — `detectar_ejercicios_a_revisar()` ya corre y **ya se ve en Progreso** (`_render_ejercicios_a_revisar`); lo que falta es mostrarla también junto al editor de rutina, que es donde el entrenador actúa sobre el hallazgo. **Diferido a propósito hasta tener historial de más clientes** (con uno solo no se puede juzgar si la lista es útil). Decisiones ya tomadas con el usuario, no volver a preguntarlas:
+1. **Subir `GUIA 1.mp4` y `GUIA 2.mp4` a YouTube como "no listado" y pasar los links** — es lo único que falta para que "Guías y Recursos" quede completa (ver §4). Mientras tanto la página no rompe, solo avisa "video en camino". También vale la pena que el usuario revise el glosario (`modules/recursos.py:GLOSARIO`) y ajuste lo que no calce con cómo él mismo explica esos conceptos.
+2. **Importar el historial del resto de los clientes** — hoy **solo el cliente de prueba tiene historial cargado**; los otros 7 no. El flujo ya funciona y ya no exige renombrar el archivo (§4), así que es puramente operativo: el usuario le pide el CSV a cada cliente y lo sube en Progreso. **Esto bloquea el punto 3**, así que va antes.
+3. **Traer la tabla de estancamiento a la página Entrenamiento** — `detectar_ejercicios_a_revisar()` ya corre y **ya se ve en Progreso** (`_render_ejercicios_a_revisar`); lo que falta es mostrarla también junto al editor de rutina, que es donde el entrenador actúa sobre el hallazgo. **Diferido a propósito hasta tener historial de más clientes** (con uno solo no se puede juzgar si la lista es útil). Decisiones ya tomadas con el usuario, no volver a preguntarlas:
    - **Por cliente seleccionado**, dentro de `render_admin` — *no* un barrido global como el deload. Motivo: `render_alertas_entrenamiento()` corre antes del selector y recorrería a todos los clientes, y cada uno son ~5.000 filas en 5 requests paginados; la página se volvería lenta a cambio de poco.
    - **Solo informativa**: sin botón de notificar al cliente (decirle "llevas semanas sin progresar" desmotiva; esa conversación la maneja el entrenador) y sin botón de descartar.
    - El `st.info` de Entrenamiento ya **no** dice "pendiente": ahora apunta a dónde vive el análisis hoy.
-3. **CAPTCHA en login y registro** — **NO activar hasta nuevo aviso** (decisión del usuario, 2026-09-02; ya se le explicó el riesgo dos veces, no volver a proponerlo). Riesgo asumido a conciencia: hoy no hay protección contra fuerza bruta ni registro automatizado, así que cualquiera puede crear cuentas en masa. No expone datos de nadie (RLS aguanta), pero puede llenar la base de basura. Cuando el usuario lo pida: Supabase lo soporta nativo en Authentication → Settings → Bot Protection; es principalmente configuración.
-4. **Pasar el repo de GitHub a privado** — abierto, sin decidir. No hay ninguna fuga que tapar (§2), así que es defensa en profundidad: hoy cualquiera puede leer el esquema completo con todas las políticas RLS y las funciones `security definer`, o sea el mapa para buscarle un hueco. En contra: nada — 0 forks, 0 watchers, no se usa como portafolio. **Antes de hacerlo hay que confirmar que Streamlit Community Cloud siga desplegando**: soporta repos privados, pero exige permisos extra de GitHub y el plan gratuito limita cuántas apps privadas se pueden tener.
-5. **Cabeceras HTTP de seguridad** (CSP, HSTS, X-Frame-Options) — **no se puede** en Streamlit Community Cloud; requeriría proxy/hosting propio. Diferido conscientemente.
-6. **Residual menor del generador de dieta** — ~50 de 6000 alimentos revisados salen con 5 g en vez de 10 g de frutos secos, solo en el bloque de Snack. Se baja subiendo `intentos` o ajustando `MINIMO_GRAMOS`.
+4. **CAPTCHA en login y registro** — **NO activar hasta nuevo aviso** (decisión del usuario, 2026-09-02; ya se le explicó el riesgo dos veces, no volver a proponerlo). Riesgo asumido a conciencia: hoy no hay protección contra fuerza bruta ni registro automatizado, así que cualquiera puede crear cuentas en masa. No expone datos de nadie (RLS aguanta), pero puede llenar la base de basura. Cuando el usuario lo pida: Supabase lo soporta nativo en Authentication → Settings → Bot Protection; es principalmente configuración.
+5. **Pasar el repo de GitHub a privado** — abierto, sin decidir. No hay ninguna fuga que tapar (§2), así que es defensa en profundidad: hoy cualquiera puede leer el esquema completo con todas las políticas RLS y las funciones `security definer`, o sea el mapa para buscarle un hueco. En contra: nada — 0 forks, 0 watchers, no se usa como portafolio. **Antes de hacerlo hay que confirmar que Streamlit Community Cloud siga desplegando**: soporta repos privados, pero exige permisos extra de GitHub y el plan gratuito limita cuántas apps privadas se pueden tener.
+6. **Cabeceras HTTP de seguridad** (CSP, HSTS, X-Frame-Options) — **no se puede** en Streamlit Community Cloud; requeriría proxy/hosting propio. Diferido conscientemente.
+7. **Residual menor del generador de dieta** — ~50 de 6000 alimentos revisados salen con 5 g en vez de 10 g de frutos secos, solo en el bloque de Snack. Se baja subiendo `intentos` o ajustando `MINIMO_GRAMOS`.
 
 ---
 
@@ -221,17 +236,19 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 | `utils/plan_alimentario.py` | 475 | Generador de dieta: alimentos, alergias, solver de macros, porciones mínimas |
 | `utils/plan_entrenamiento.py` | 457 | Generador de rutina: detección por palabras clave, ~120 ejercicios, plantillas de split |
 | `modules/checkin.py` | 403 | Check-in semanal, alertas de adherencia y deload |
-| `app.py` | 375 | Login, recuperación de contraseña, roles, navegación, selector de cliente, bloqueo por suscripción vencida |
+| `app.py` | 348 | Login, recuperación de contraseña, roles, navegación, selector de cliente, bloqueo por suscripción vencida |
 | `modules/nutricion.py` | 332 | Calculadora TDEE/macros y planificador de dieta |
 | `utils/queries.py` | 307 | **Único punto de acceso a la BD.** Ojo con la paginación en `list_historial_entrenamientos` |
 | `utils/theme.py` | 291 | CSS de identidad visual, incluidos los estilos `st-key-*` |
 | `modules/admin_clientes.py` | 264 | Gestión de clientes y suscripciones |
 | `modules/hevy_integration.py` | 261 | Página Progreso: importador de CSV, tabla de estancados, gráfica de 1RM, gráficas de check-in |
 | `modules/onboarding.py` | 251 | Formulario del cliente + ficha del admin |
+| `modules/recursos.py` | 153 | Página "Guías y Recursos": política+términos, videos guía, glosario. Sin `cliente_id`, misma vista para los dos roles |
 | `utils/auth.py` | 200 | Login, registro, recuperación de contraseña, carga de rol |
 | `utils/pdf_export.py` | 149 | PDF de la ficha de onboarding |
 | `utils/hevy_import.py` | 136 | Parseo/agregación del CSV de Hevy (sin Streamlit) |
 | `utils/formato.py` | 125 | Fechas Bogotá, `escapar_markdown()`, `es_respuesta_vacia_o_negativa()` |
 | `utils/analisis_progreso.py` | 122 | 1RM estimado (Epley) + detección de estancamiento (sin Streamlit) |
+| `utils/legal.py` | 55 | Aviso de tratamiento de datos + términos y condiciones — un solo texto, usado en el registro y en Guías y Recursos |
 
 **Archivos de configuración:** `.streamlit/config.toml` (tema oscuro), `.env.example`, `requirements.txt` + `requirements-lock.txt` (versiones fijadas), `.github/workflows/keep-alive.yml`, `.github/dependabot.yml`.
