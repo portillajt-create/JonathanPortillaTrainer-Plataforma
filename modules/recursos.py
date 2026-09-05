@@ -33,9 +33,9 @@ from utils.legal import AVISO_TRATAMIENTO_DATOS, TERMINOS_CONDICIONES
 #: url=None -> se avisa en vez de intentar reproducir un video inexistente.
 VIDEOS_GUIA: list[dict[str, str | None]] = [
     {
-        "titulo": "Cómo exportar tu historial de Hevy",
-        "descripcion": "Paso a paso para descargar el CSV de tus entrenamientos desde la app de Hevy y enviárselo a tu entrenador.",
-        "url": None,  # pendiente: "GUIA 1.mp4" del usuario, subir a YouTube como "no listado" y pegar el link acá.
+        "titulo": "Cómo usar la app de Hevy",
+        "descripcion": "Cómo registrar tus entrenamientos en Hevy — el paso previo a exportar tu historial y enviárselo a tu entrenador.",
+        "url": "https://www.youtube.com/watch?v=k17qko7QTDk",
     },
     {
         "titulo": "Cómo usar la plataforma",
