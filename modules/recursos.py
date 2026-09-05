@@ -40,7 +40,7 @@ VIDEOS_GUIA: list[dict[str, str | None]] = [
     {
         "titulo": "Cómo usar la plataforma",
         "descripcion": "Recorrido por las secciones de la plataforma: tu perfil, tu dieta, tu rutina, tu progreso y el check-in semanal.",
-        "url": None,  # pendiente: "GUIA 2.mp4" del usuario, subir a YouTube como "no listado" y pegar el link acá.
+        "url": "https://www.youtube.com/watch?v=zoYnKWl_TpA",
     },
 ]
 
