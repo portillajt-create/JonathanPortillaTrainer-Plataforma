@@ -140,14 +140,14 @@ def render() -> None:
     st.subheader("Guías y Recursos")
     st.caption("Aquí encuentras las políticas de la plataforma, videos guía y el glosario de conceptos.")
 
-    with st.expander("🔒 Política de datos y términos y condiciones"):
+    with st.expander("Política de datos y términos y condiciones 🔒"):
         st.markdown("###### Aviso de tratamiento de datos personales")
         st.caption(AVISO_TRATAMIENTO_DATOS)
         st.markdown("###### Términos y condiciones")
         st.caption(TERMINOS_CONDICIONES)
 
-    with st.expander("🎬 Videos guía"):
+    with st.expander("Videos guía 🎬"):
         _render_videos_guia()
 
-    with st.expander("📖 Glosario de conceptos"):
+    with st.expander("Glosario de conceptos 📖"):
         _render_glosario()
