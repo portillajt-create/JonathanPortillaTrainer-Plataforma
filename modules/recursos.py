@@ -141,7 +141,7 @@ def render() -> None:
     st.caption("Aquí encuentras las políticas de la plataforma, videos guía y el glosario de conceptos.")
 
     with st.expander("Política de datos y términos y condiciones 🔒"):
-        st.markdown("###### Aviso de tratamiento de datos personales")
+        st.markdown("###### Política de datos personales")
         st.caption(AVISO_TRATAMIENTO_DATOS)
         st.markdown("###### Términos y condiciones")
         st.caption(TERMINOS_CONDICIONES)

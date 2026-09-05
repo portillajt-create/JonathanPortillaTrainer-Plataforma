@@ -92,7 +92,7 @@ def render_auth_screen() -> None:
             password_signup = st.text_input("Contraseña", type="password", key="signup_password")
             submitted_signup = st.form_submit_button("Crear cuenta", use_container_width=True, type="primary")
 
-        with st.expander("Aviso de tratamiento de datos personales 🔒"):
+        with st.expander("Política de datos personales 🔒"):
             st.caption(AVISO_TRATAMIENTO_DATOS)
 
         with st.expander("Términos y condiciones 📄"):
