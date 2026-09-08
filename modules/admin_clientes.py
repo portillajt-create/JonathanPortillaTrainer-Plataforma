@@ -30,17 +30,16 @@ from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion,
 PLANES = ["Mensual", "Trimestral", "Semestral", "Personalizado"]
 DURACION_MESES = {"Mensual": 1, "Trimestral": 3, "Semestral": 6}
 
-# ⚠️ VALORES DE EJEMPLO — cambiar por los precios reales (COP) antes de
-# confiar en "Ingresos estimados del mes". Precio fijo por tipo de plan
-# (pedido del usuario, 2026-09-08): decisión explícita de no incluir
-# "Personalizado" (por definición no tiene un precio único) ni exponer
-# esto al cliente en ningún lado — es solo para este panel de admin.
-# Único lugar donde se definen: no hay pantalla para editarlos porque
-# casi nunca cambian; para ajustarlos, se edita esta constante.
+# Precios reales del usuario (COP), confirmados 2026-09-09. Precio fijo
+# por tipo de plan (decisión explícita de no incluir "Personalizado", que
+# por definición no tiene un precio único, ni exponer esto al cliente en
+# ningún lado — es solo para este panel de admin). Único lugar donde se
+# definen: no hay pantalla para editarlos porque casi nunca cambian; para
+# ajustarlos, se edita esta constante.
 PRECIOS_PLANES = {
-    "Mensual": 150_000,
-    "Trimestral": 400_000,
-    "Semestral": 700_000,
+    "Mensual": 70_000,
+    "Trimestral": 180_000,
+    "Semestral": 330_000,
 }
 
 
@@ -148,7 +147,7 @@ def _render_metricas(clientes: list[dict]) -> None:
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total clientes", total)
     col2.metric("Activos", activos)
-    col3.metric("Por vencer (≤5 días)", por_vencer)
+    col3.metric("Por vencer (≤2 días)", por_vencer)
     col4.metric("Vencidos / inactivos", vencidos)
     ayuda = (
         "Suma los precios fijos por plan (PRECIOS_PLANES en admin_clientes.py — hoy son valores de "

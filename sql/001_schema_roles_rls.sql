@@ -60,7 +60,7 @@ select
     c.email,
     (s.fecha_vencimiento - current_date)                       as dias_restantes,
     (s.estado = 'Activo' and s.fecha_vencimiento is not null
-        and s.fecha_vencimiento - current_date <= 5)            as por_vencer,
+        and s.fecha_vencimiento - current_date <= 2)            as por_vencer,
     (s.estado = 'Activo' and s.fecha_vencimiento is not null
         and s.fecha_vencimiento < current_date)                 as vencida
 from public.suscripciones s

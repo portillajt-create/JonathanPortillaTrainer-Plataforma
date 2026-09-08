@@ -311,14 +311,17 @@ Pedido: visible para cliente **y** admin. El dato ya existía: `guardar_dieta`/`
 ### Ingresos estimados del mes — HECHO (2026-09-08)
 Pedido: opción 1 (precio fijo por tipo de plan), confirmado que **el cliente nunca lo ve** — vive únicamente en `modules/admin_clientes.py`, que el cliente ni siquiera puede importar.
 
-- `PRECIOS_PLANES` (Mensual/Trimestral/Semestral) en `admin_clientes.py`, junto a `DURACION_MESES` que ya existía. **⚠️ Son valores de ejemplo (150.000/400.000/700.000) — el usuario debe cambiarlos por sus precios reales.** Es el único lugar donde se definen; no hay pantalla para editarlos porque casi nunca cambian.
+- `PRECIOS_PLANES` (Mensual/Trimestral/Semestral) en `admin_clientes.py`, junto a `DURACION_MESES` que ya existía. **Precios reales confirmados por el usuario (2026-09-09): Mensual $70.000, Trimestral $180.000, Semestral $330.000 COP.** Es el único lugar donde se definen; no hay pantalla para editarlos porque casi nunca cambian — para ajustarlos en el futuro, se edita esta constante.
 - `Personalizado` se excluye a propósito del cálculo (por definición no tiene un precio único) — si hay clientes con ese plan, el `help` de la métrica lo dice explícitamente.
 - Nueva 5ª métrica "Ingresos estimados/mes" en Gestión de Clientes, sumando los clientes Activos y no vencidos, con Trimestral/Semestral prorrateado a mensual (÷3, ÷6).
-- Probado con 4 clientes simulados (Mensual, Trimestral, Personalizado, Vencido): dio exactamente `$283.333` (150.000 + 400.000/3), sin contar el Personalizado ni el Vencido.
+- Probado con datos simulados y los precios reales (Mensual/Trimestral/Semestral/uno por vencer): dio exactamente `$255.000` (70.000 + 180.000/3 + 330.000/6 + 70.000).
+
+### Umbral de "Por vencer": de 5 a 2 días — HECHO (2026-09-09)
+Decisión del usuario: el "2 días" de los recordatorios automáticos (ver abajo) **también** cambia el badge visual — no son dos umbrales distintos, es uno solo. Cambiado en la vista SQL `vista_suscripciones` (`fecha_vencimiento - current_date <= 2`, antes `<= 5`) y en el texto de la métrica en `admin_clientes.py` ("Por vencer (≤2 días)"). **Requiere correr el `create or replace view` actualizado en Supabase** — se le entregó al usuario el bloque SQL en el chat.
 
 ### Recordatorios automáticos — lógica acordada con el usuario, esperando su confirmación final antes de tocar código
 - **Check-in de la semana pasada**: cron corre lunes/miércoles/viernes; revisa cada cliente activo con la misma `semana_a_reportar()` ya existente; si sigue sin reportarse, avisa — hasta 3 veces por semana mientras siga pendiente (mismo espíritu del "se repite mientras esté pendiente" que ya existe, solo que ligado a la pasada del cron en vez de a cada visita). **La ventana de la semana en curso (habilitada desde el jueves) no cambia** — el cron no empuja a adelantarla, solo avisa de la semana ya cerrada.
-- **Vencimiento**: se envía **una sola vez**, el día en que faltan ≤2 días — para eso, esta parte del cron corre **todos los días** (no solo L/M/V). **Pregunta sin resolver**: el badge "🟡 Por vencer" de Gestión de Clientes usa hoy un umbral de 5 días (`vista_suscripciones`) — ¿el "2 días" del usuario es solo para el aviso automático nuevo (el badge se queda en 5), o también cambia el badge visual? Si es lo segundo, hace falta otro cambio de SQL (la vista).
+- **Vencimiento**: se envía **una sola vez**, el día en que faltan ≤2 días — para eso, esta parte del cron corre **todos los días** (no solo L/M/V). El badge visual "🟡 Por vencer" de Gestión de Clientes **también** pasa de 5 a 2 días — decidido, ya hecho (ver más abajo): el umbral es uno solo, compartido por el badge y por el futuro aviso automático.
 - **Arquitectura**: GitHub Action con cron (misma infraestructura del keep-alive), usando la clave `service_role` de Supabase **solo ahí, nunca en la app ni en el repo** — necesaria porque `crear_notificacion_sistema` (la única vía de escritura sin ser admin) exige `auth.uid()` y solo permite el tipo `checkin_faltante`.
 - **No tocar código de esto hasta que el usuario responda la pregunta del umbral y confirme el entendimiento de la ventana del jueves.**
 
