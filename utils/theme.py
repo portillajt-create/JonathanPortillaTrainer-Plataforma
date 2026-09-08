@@ -135,6 +135,19 @@ h1 {
 .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
     border-radius: 10px !important;
 }
+
+/* Selector de "Periodo" en Progreso (hevy_integration.py) — sus 5 opciones
+   (1 mes/3 meses/6 meses/1 año/Todo) no caben en una fila en celular: el
+   segmented_control las envuelve, y como cada botón trae flex: 0 1 auto
+   (no crece), la opción que queda sola en la segunda fila ("Todo") se
+   veía pegada a la izquierda con un hueco vacío enorme al lado. Acotado
+   por el propio "key" del widget (st-key-hevy_periodo_<cliente_id>, que
+   Streamlit genera solo) para no tocar otros segmented_control del
+   proyecto (ej. el RPE de 4 opciones, que sí cabe en una fila y no
+   necesita esto). */
+[class*="st-key-hevy_periodo_"] [data-testid="stButtonGroup"] > div:last-child > * {
+    flex: 1 1 auto !important;
+}
 </style>
 """
 
