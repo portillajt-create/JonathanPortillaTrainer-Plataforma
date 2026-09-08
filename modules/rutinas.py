@@ -441,7 +441,7 @@ def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
     )
     fig.update_layout(showlegend=False, margin=dict(t=10, b=10, l=10, r=30), height=max(220, 36 * len(filas)))
     fig.update_xaxes(showgrid=False, zeroline=False)
-    st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
+    theme.mostrar_grafico(theme.estilizar_grafico(fig))
 
 
 def render_cliente(cliente_id: str) -> None:

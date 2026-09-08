@@ -158,7 +158,8 @@ def _render_checkins(cliente_id: str) -> None:
         )
         fig_peso.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
         fig_peso.update_traces(line_color="#FFFFFF", marker=dict(color="#FFFFFF", size=7))
-        st.plotly_chart(theme.estilizar_grafico(fig_peso), use_container_width=True)
+        fig_peso.update_xaxes(tickformat="%d/%m", nticks=6)
+        theme.mostrar_grafico(theme.estilizar_grafico(fig_peso))
 
     st.markdown("##### Adherencia")
     _grafico_lineas(
@@ -243,7 +244,8 @@ def _render_historial_ejercicio(cliente_id: str) -> None:
             line_color="#FFFFFF", marker=dict(color="#FFFFFF", size=6),
             hovertemplate="%{x|%d/%m/%Y}<br>1RM estimado: %{y:.0f} kg<br>Serie top: %{customdata[0]:g} kg x %{customdata[1]:g}<extra></extra>",
         )
-        st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
+        fig.update_xaxes(tickformat="%d/%m", nticks=6)
+        theme.mostrar_grafico(theme.estilizar_grafico(fig))
         st.caption(
             "El **1RM estimado** (fórmula de Epley) combina el peso y las repeticiones de la serie "
             "más pesada de cada día en un solo número comparable entre sesiones, aunque no hayan usado "
@@ -266,5 +268,6 @@ def _grafico_lineas(df: pd.DataFrame, columnas: dict[str, str]) -> None:
         labels={"semana_fecha": "Semana", "valor": "Puntaje (1-10)"},
     )
     fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300, yaxis_range=[0, 10])
-    st.plotly_chart(theme.estilizar_grafico(fig), use_container_width=True)
+    fig.update_xaxes(tickformat="%d/%m", nticks=6)
+    theme.mostrar_grafico(theme.estilizar_grafico(fig))
 

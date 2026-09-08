@@ -252,17 +252,52 @@ PLOTLY_GRID_COLOR = "rgba(255,255,255,0.10)"
 
 
 def estilizar_grafico(fig):
-    """Aplica fondo transparente + texto/ejes/leyenda/hover legibles en tema oscuro."""
+    """Aplica fondo transparente + texto/ejes/leyenda/hover legibles en tema oscuro.
+
+    La leyenda va HORIZONTAL, ABAJO y centrada (en vez del default de Plotly,
+    vertical a la derecha) — a la derecha le quitaba ancho útil al área de
+    trazado en pantallas angostas (celular), que es donde más se ve esta app.
+    Solo se reserva el espacio de abajo cuando el gráfico de verdad va a
+    mostrar una leyenda: los que la desactivan a propósito con
+    showlegend=False (la dona de macros, el de volumen por músculo) dejarían
+    un hueco vacío si igual les metiéramos el margen extra.
+    """
+    tiene_leyenda = fig.layout.showlegend is not False
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color=PLOTLY_FONT_COLOR),
-        legend=dict(font=dict(color=PLOTLY_FONT_COLOR)),
         hoverlabel=dict(bgcolor="#1A1A1C", font_color="#FFFFFF", bordercolor="rgba(255,255,255,0.15)"),
     )
+    if tiene_leyenda:
+        # margin.b se combina con el t/l/r que cada gráfico ya trae — Plotly
+        # mezcla los dicts anidados en update_layout, no lo reemplaza entero.
+        fig.update_layout(
+            legend=dict(
+                orientation="h", yanchor="top", y=-0.22, xanchor="center", x=0.5,
+                font=dict(color=PLOTLY_FONT_COLOR),
+            ),
+            margin=dict(b=60),
+        )
     fig.update_xaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
     fig.update_yaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
     return fig
+
+
+def mostrar_grafico(fig) -> None:
+    """
+    Único punto por el que se renderiza un gráfico de Plotly en toda la app
+    (reemplaza el `st.plotly_chart(fig, use_container_width=True)` que antes
+    se repetía en cada módulo) — para que ocultar la barra de herramientas
+    (zoom/pan/cámara de Plotly) sea un solo cambio y no seis. El usuario la
+    pidió afuera: en una app de solo consulta, sin necesidad real de hacer
+    zoom, esos botones solo ocupan espacio y se prestan a toques accidentales
+    en celular. `displayModeBar: False` la oculta también al pasar el mouse
+    (no solo por defecto), a diferencia de dejarla en "auto".
+    """
+    import streamlit as st
+
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
 # Estilos para streamlit_option_menu (menú lateral con iconos): pastillas

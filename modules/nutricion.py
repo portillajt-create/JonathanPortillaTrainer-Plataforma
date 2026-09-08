@@ -167,7 +167,7 @@ def render_admin(cliente_id: str) -> None:
     col8.metric("Carbohidratos", f"{carbohidratos_g:.0f} g")
     col9.metric("Grasas", f"{grasas_g:.0f} g")
 
-    st.plotly_chart(_grafico_macros(proteina_kcal, carb_kcal, grasas_kcal), use_container_width=True)
+    theme.mostrar_grafico(_grafico_macros(proteina_kcal, carb_kcal, grasas_kcal))
 
     st.markdown("##### 4. Planificador de dieta")
     tipo_actual = dieta_actual.get("tipo_dieta") if dieta_actual and dieta_actual.get("tipo_dieta") in TIPOS_DIETA else TIPOS_DIETA[0]
@@ -285,10 +285,7 @@ def render_cliente(cliente_id: str) -> None:
     col4.metric("Carbohidratos", f"{carbohidratos_g:.0f} g")
     col5.metric("Grasas", f"{grasas_g:.0f} g")
 
-    st.plotly_chart(
-        _grafico_macros(proteinas_g * 4, carbohidratos_g * 4, grasas_g * 9),
-        use_container_width=True,
-    )
+    theme.mostrar_grafico(_grafico_macros(proteinas_g * 4, carbohidratos_g * 4, grasas_g * 9))
 
     if dieta.get("plan_comidas"):
         st.markdown("##### 🍽️ Plan de comidas")
