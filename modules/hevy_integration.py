@@ -281,7 +281,11 @@ def _grafico_lineas(df: pd.DataFrame, columnas: dict[str, str]) -> None:
         df_largo, x="semana_fecha", y="valor", color="métrica", markers=True,
         labels={"semana_fecha": "Semana", "valor": "Puntaje (1-10)"},
     )
-    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300, yaxis_range=[0, 10])
+    # yaxis_range con un poco de aire por encima y por debajo de 0-10: sin
+    # esto, un punto que cae justo en el 10 (el máximo del slider) queda con
+    # su centro exactamente en el borde del área de trazado y el marcador se
+    # ve cortado a la mitad — el semicírculo de arriba se recorta.
+    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300, yaxis_range=[-0.5, 10.5])
     fig.update_xaxes(tickformat="%d/%m", nticks=6)
     theme.mostrar_grafico(theme.estilizar_grafico(fig))
 
