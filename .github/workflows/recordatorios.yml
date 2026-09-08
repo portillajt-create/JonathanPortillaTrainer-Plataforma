@@ -1,0 +1,39 @@
+name: Recordatorios automáticos (check-in y vencimiento)
+
+# Corre TODOS los días a las 13:00 UTC = 8:00 a.m. hora Bogotá (Colombia
+# no tiene horario de verano, el offset es -5 todo el año — ver
+# utils/formato.py). El propio script decide qué hacer cada día:
+#   - Check-in de la semana pasada: solo actúa lunes/miércoles/viernes.
+#   - Suscripción por vencer: actúa todos los días (para no depender de
+#     que el vencimiento caiga justo en uno de esos 3 días).
+# workflow_dispatch permite dispararlo manualmente desde la pestaña Actions
+# (útil para probarlo sin esperar al cron).
+on:
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  recordatorios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar dependencias
+        run: pip install -r scripts/requirements-recordatorios.txt
+      - name: Enviar recordatorios pendientes
+        env:
+          # SUPABASE_SERVICE_ROLE_KEY ignora RLS por completo — es la
+          # ÚNICA credencial de este workflow, y solo vive en GitHub
+          # Secrets (Settings → Secrets and variables → Actions). Nunca
+          # en el repo, nunca en la app.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+        run: python scripts/recordatorios_diarios.py

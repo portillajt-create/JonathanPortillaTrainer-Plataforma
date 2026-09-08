@@ -46,72 +46,20 @@ from utils.queries import (
     marcar_todas_notificaciones_leidas,
     upsert_checkin,
 )
+# Modelo de semanas del check-in: lógica pura, sin Streamlit — vive en
+# utils/semanas_checkin.py para que scripts/recordatorios_diarios.py (el
+# cron, que corre fuera de la app) calcule EXACTAMENTE la misma "semana a
+# reportar" que ve el cliente acá, sin duplicar la lógica en dos lugares
+# que puedan divergir. Se importa con un alias corto porque se usa mucho
+# en este módulo.
+from utils.semanas_checkin import rango_semana as _rango_semana
+from utils.semanas_checkin import semana_a_reportar, semana_en_curso_reportable
+from utils.semanas_checkin import lunes_semana_en_curso as _lunes_semana_en_curso
 
 UMBRAL_FATIGA_ALTA = 8
 UMBRAL_ESTRES_ALTO = 8
 UMBRAL_SUENO_BAJO = 4
 UMBRAL_ADHERENCIA_DIETA_BAJA = 5
-
-# =============================================================================
-# MODELO DE SEMANAS DEL CHECK-IN
-#
-# "semana_fecha" identifica la semana que el check-in REPORTA (su lunes), no
-# la semana en que se llenó el formulario. Es la diferencia clave: un cliente
-# que entra el lunes no puede calificar una semana que apenas empieza — lo que
-# reporta es cómo le fue la semana que acaba de cerrar.
-#
-# Cada semana queda abierta para reportarse durante los 7 días siguientes:
-#   - Lunes a domingo de la semana W+1 -> se reporta la semana W ("semana pasada")
-#   - Desde el jueves de W+1 -> también se habilita reportar W+1 en curso, para
-#     quien ya sabe cómo le fue y prefiere no esperar al lunes.
-# Al llegar el lunes siguiente la ventana se cierra sola y esa semana ya no
-# se puede reportar.
-# =============================================================================
-
-# Arranque del seguimiento: los clientes registrados antes de esta fecha eran
-# cuentas de prueba que todavía no habían empezado su plan, así que no se les
-# reclama ningún check-in anterior. La primera semana reportable es la del
-# 31/08/2026, y el primer recordatorio posible cae el lunes 07/09/2026.
-SEMANA_INICIO_CHECKINS = date(2026, 8, 31)
-
-# Día de la semana (lunes=0) desde el que se habilita reportar la semana en curso.
-DIA_APERTURA_SEMANA_EN_CURSO = 3  # jueves
-
-MESES_ABREV = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
-
-
-def _lunes_de(fecha: date) -> date:
-    return fecha - timedelta(days=fecha.weekday())
-
-
-def _lunes_semana_en_curso() -> date:
-    return _lunes_de(hoy_bogota())
-
-
-def semana_a_reportar() -> date | None:
-    """
-    Lunes de la semana cerrada que el cliente debería reportar ahora mismo
-    (la inmediatamente anterior). None si todavía no entra en el periodo de
-    seguimiento — es lo que evita reclamar semanas previas al arranque.
-    """
-    lunes = _lunes_semana_en_curso() - timedelta(days=7)
-    return lunes if lunes >= SEMANA_INICIO_CHECKINS else None
-
-
-def semana_en_curso_reportable() -> date | None:
-    """Lunes de la semana en curso, solo si ya es jueves o después."""
-    lunes = _lunes_semana_en_curso()
-    if lunes < SEMANA_INICIO_CHECKINS:
-        return None
-    if hoy_bogota().weekday() < DIA_APERTURA_SEMANA_EN_CURSO:
-        return None
-    return lunes
-
-
-def _rango_semana(lunes: date) -> str:
-    """date(2026, 8, 31) -> '31 ago – 6 sep'"""
-    domingo = lunes + timedelta(days=6)
-    return f"{lunes.day} {MESES_ABREV[lunes.month - 1]} – {domingo.day} {MESES_ABREV[domingo.month - 1]}"
 
 
 # ---------------------------------------------------------------------------

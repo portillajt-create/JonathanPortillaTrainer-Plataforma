@@ -1,0 +1,6 @@
+# Dependencias del cron de recordatorios (scripts/recordatorios_diarios.py),
+# separadas del requirements.txt de la app: el script no usa Streamlit,
+# pandas ni plotly, así que el workflow de GitHub Actions instala solo esto
+# y corre más rápido. Misma versión de supabase que ya usa la app
+# (requirements.txt) — no hay razón para que difieran.
+supabase==2.31.0
