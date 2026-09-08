@@ -279,8 +279,18 @@ def estilizar_grafico(fig):
             ),
             margin=dict(b=60),
         )
-    fig.update_xaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
-    fig.update_yaxes(color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR)
+    # fixedrange=True: bloquea el zoom/pan por arrastre o pellizco en ambos
+    # ejes, sin apagar el hover (a diferencia de config={"staticPlot": True},
+    # que sí lo apagaría — y el de 1RM depende del hover para mostrar el
+    # peso/reps reales de cada punto). Sin esto, en celular cualquier toque
+    # sobre la gráfica se interpretaba como un gesto de zoom/pan y la
+    # gráfica "se movía" sola.
+    fig.update_xaxes(
+        color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR, fixedrange=True
+    )
+    fig.update_yaxes(
+        color=PLOTLY_FONT_COLOR, gridcolor=PLOTLY_GRID_COLOR, zerolinecolor=PLOTLY_GRID_COLOR, fixedrange=True
+    )
     return fig
 
 

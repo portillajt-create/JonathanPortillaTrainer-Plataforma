@@ -292,7 +292,11 @@ def render_admin(cliente_id: str) -> None:
                     st.session_state[mover_dia_pendiente_key] = (dia, 1)
                     st.rerun()
 
-        with st.expander(titulo_expander, expanded=bool(por_dia[dia])):
+        # Todos los días arrancan replegados (pedido del usuario, 2026-09-08):
+        # antes se abrían solos los días que ya tenían ejercicios, y con una
+        # rutina completa eso terminaba abriendo los 7 de una — obligando a
+        # scrollear entre todos para llegar al que se quiere editar.
+        with st.expander(titulo_expander, expanded=False):
             st.text_input("Nombre del día (opcional)", key=etiqueta_key, placeholder="Ej. Pecho y bíceps")
 
             total_dia = len(por_dia[dia])
@@ -467,11 +471,13 @@ def render_cliente(cliente_id: str) -> None:
         por_dia.setdefault(bloque.get("dia") or "Sin día asignado", []).append(bloque)
 
     dias_ordenados = sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS))
-    for idx, dia in enumerate(dias_ordenados):
+    for dia in dias_ordenados:
         etiqueta = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
         sufijo_cantidad = _texto_cantidad_ejercicios(len(por_dia[dia]))
         titulo_dia = f"{dia}: {etiqueta}{sufijo_cantidad}" if etiqueta else f"{dia}{sufijo_cantidad}"
-        with st.expander(titulo_dia, expanded=(idx == 0)):
+        # Todos replegados de entrada (antes solo el primer día se abría
+        # solo) — mismo pedido del usuario que en render_admin, arriba.
+        with st.expander(titulo_dia, expanded=False):
             for i, ejercicio in enumerate(por_dia[dia]):
                 if i > 0:
                     st.divider()

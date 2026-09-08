@@ -150,6 +150,20 @@ def _render_checkins(cliente_id: str) -> None:
         f"{int(ultimo['adherencia_entrenamiento'])}/10" if pd.notna(ultimo["adherencia_entrenamiento"]) else "—",
     )
 
+    col4, col5, col6 = st.columns(3)
+    col4.metric(
+        "Calidad de sueño (última)",
+        f"{int(ultimo['calidad_sueno'])}/10" if pd.notna(ultimo["calidad_sueno"]) else "—",
+    )
+    col5.metric(
+        "Nivel de estrés (última)",
+        f"{int(ultimo['nivel_estres'])}/10" if pd.notna(ultimo["nivel_estres"]) else "—",
+    )
+    col6.metric(
+        "Fatiga (última)",
+        f"{int(ultimo['fatiga'])}/10" if pd.notna(ultimo["fatiga"]) else "—",
+    )
+
     if df["peso_corporal_kg"].notna().any():
         st.markdown("##### Peso corporal")
         fig_peso = px.line(
