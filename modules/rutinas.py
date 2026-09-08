@@ -489,7 +489,14 @@ def render_cliente(cliente_id: str) -> None:
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Series", ejercicio.get("series") if ejercicio.get("series") is not None else "—")
                 col2.metric("Reps", ejercicio.get("repeticiones") or "—")
-                col3.metric("RPE", ejercicio.get("rpe_rir") or "—")
+                # Título "Nivel de intensidad" en vez de "RPE" SOLO en esta
+                # vista de cliente (pedido del usuario, 2026-09-08): con
+                # título "RPE" y valor "RPE 8-9" debajo, se veía la palabra
+                # repetida dos veces y confundía. El valor sigue siendo
+                # exactamente el que asignó el admin (ej. "RPE 8-9") — no se
+                # toca el editor del admin (rutinas.py:353), que sigue
+                # llamando al selector "RPE".
+                col3.metric("Nivel de intensidad", ejercicio.get("rpe_rir") or "—")
                 col4.metric("Descanso", f"{_formatear_minutos(ejercicio.get('descanso_min'))} min")
                 if ejercicio.get("notas"):
                     st.caption(f"📝 {ejercicio['notas']}")
