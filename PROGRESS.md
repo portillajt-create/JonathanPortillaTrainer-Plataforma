@@ -268,3 +268,41 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 | `utils/legal.py` | 55 | Aviso de tratamiento de datos + términos y condiciones — un solo texto, usado en el registro y en Guías y Recursos |
 
 **Archivos de configuración:** `.streamlit/config.toml` (tema oscuro), `.env.example`, `requirements.txt` + `requirements-lock.txt` (versiones fijadas), `.github/workflows/keep-alive.yml`, `.github/dependabot.yml`.
+
+---
+
+## 9. Backlog de ideas (lluvia de ideas 2026-09-08, con veredicto del usuario)
+
+Salió de un análisis autocrítico propio + comparación con Trainerize/TrueCoach/Everfit/My PT Hub. El usuario revisó los 18 puntos uno por uno. **No repreguntar estos veredictos** — si algo cambia, lo dice él.
+
+### Descartados por completo (no reabrir)
+- **Biblioteca de ejercicios con GIF/video** — "para eso está Hevy".
+- **Descargar dieta/rutina en PDF** — "los PDF me parecen obsoletos, la idea es que el cliente use la plataforma".
+- **Exportar datos en bloque (Excel)** — descartado.
+- **Chat directo dentro de la plataforma** — descartado.
+- **Avisos por WhatsApp** — descartado.
+- **Tema claro** — descartado, se queda solo oscuro.
+
+### Para evaluar a futuro (interesante, pero no ahora — no implementar sin que el usuario lo reactive)
+- Fotos de progreso (antes/después).
+- Medidas corporales (cintura, cadera, brazo, pecho) en el check-in.
+- Metas explícitas con barra de progreso.
+- Pagos integrados (Stripe/Wompi/Bold).
+- Racha de check-ins consecutivos (gamificación).
+- Programa de referidos.
+
+### Aprobados, en curso o hechos
+- **Plantillas de rutina reutilizables** — "me encanta, ejecútalo". Ver implementación más abajo / en el commit correspondiente.
+- **Revisar en serio la experiencia en celular** — "hazlo sí perfecto".
+
+### Aprobados EN CONCEPTO, pendientes de precisar el diseño antes de tocar código
+El usuario quiere ver cómo se vería/funcionaría antes de dar la orden de ejecutar — no asumir un diseño y construirlo directo.
+
+1. **Historial de dietas/rutinas anteriores visible al cliente.** El dato ya existe: `guardar_dieta`/`guardar_rutina` (`utils/queries.py`) nunca borran nada, solo desactivan (`activa=False`) el plan anterior al insertar uno nuevo — así que el histórico completo ya está en las tablas `dietas` y `rutinas`, solo que hoy nadie lo consulta (`get_dieta_activa`/`get_rutina_activa` solo traen la fila activa). Falta: una query nueva que traiga todas las filas de un cliente, y una sección en la UI (cliente y/o admin) que las liste. Pendiente de precisar con el usuario.
+2. **Recordatorios automáticos reales (check-in faltante + suscripción por vencer).** Hoy ambos avisos son "on visit" (ver §4, nota de 2026-09) — el problema de fondo que hay que resolver con cuidado: la función SQL `crear_notificacion_sistema` (única vía sin ser admin) exige `auth.uid()` no nulo y solo permite tipo `'checkin_faltante'` — un cron externo sin sesión de ningún cliente no puede usarla tal cual. Camino más limpio: GitHub Actions con cron (misma infraestructura que ya existe para el keep-alive) usando la clave `service_role` de Supabase **solo ahí, nunca en la app ni en el repo** — ese es justo el patrón de "backend seguro" que se descartó para el scraper de Hevy pero que aquí sí aplica correctamente (GitHub Actions es un entorno de servidor controlado, no público). Preguntas de producto que el usuario hizo y siguen sin decidir:
+   - Vencimiento: ¿avisar una sola vez a cuántos días de faltar (él sugirió 1 día; hoy "por vencer" en `vista_suscripciones` usa un umbral de ≤5 días), o avisar repetidamente mientras siga vencida/por vencer?
+   - Check-in: la lógica de "si ya lo reportó, no se envía" **ya existe** (`_generar_notificacion_checkin_faltante`, `checkin.py`) — no hay que inventarla. Lo que falta decidir es la frecuencia del cron (¿diario? ¿días fijos?) — no hace falta "3 veces por semana en días definidos": basta con correr el cron todos los días y dejar que la lógica ya existente decida sola si corresponde avisar (con su propio límite de un aviso por día).
+3. **Panel ejecutivo — SOLO ingresos estimados del mes** (el resto del panel, descartado). Hoy no existe ningún campo de precio/monto en el esquema (`suscripciones` no tiene columna de precio). Dos caminos, a decidir con el usuario:
+   - Precio fijo por tipo de plan (Mensual/Trimestral/Semestral), configurado una sola vez en un solo lugar — más simple, pero no cubre bien "Personalizado" (que por definición varía).
+   - Monto por cliente, agregando un campo (ej. `monto_pago`) al formulario de suscripción ya existente en `admin_clientes.py` — más flexible, cubre "Personalizado", pero el usuario debe ingresarlo cliente por cliente. El "ingreso estimado del mes" se calcularía sumando los montos de los clientes activos, normalizando trimestral/semestral a un equivalente mensual (÷3, ÷6).
+4. **Vista de calendario** (próximo check-in / vencimiento). Streamlit no trae un widget de calendario nativo — haría falta la librería `streamlit-calendar` (de terceros, gratuita) o un layout de grid armado a mano. Falta decidir con el usuario: ¿para el cliente (ver su propio próximo check-in/vencimiento), para el admin (vencimientos de todos los clientes de un vistazo), o los dos.
