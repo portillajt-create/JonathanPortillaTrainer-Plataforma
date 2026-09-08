@@ -42,7 +42,7 @@ import streamlit as st
 
 from utils import theme
 from utils.analisis_progreso import calcular_e1rm, detectar_ejercicios_a_revisar
-from utils.formato import hoy_bogota
+from utils.formato import escapar_markdown, hoy_bogota
 from utils.hevy_import import parsear_csv_hevy
 from utils.queries import guardar_historial_entrenamientos, list_checkins, list_historial_entrenamientos
 
@@ -163,6 +163,15 @@ def _render_checkins(cliente_id: str) -> None:
         "Fatiga (última)",
         f"{int(ultimo['fatiga'])}/10" if pd.notna(ultimo["fatiga"]) else "—",
     )
+
+    # Nota libre del check-in (ver modules/checkin.py). escapar_markdown():
+    # es texto que escribe el cliente, mismo tratamiento que las notas de
+    # onboarding, para que no pueda inyectar enlaces o imágenes.
+    notas_ultimo = (ultimo["notas"] or "").strip() if pd.notna(ultimo["notas"]) else ""
+    if notas_ultimo:
+        semana_ultimo = ultimo["semana_fecha"].strftime("%d/%m/%Y")
+        st.markdown(f"##### 📝 Notas del cliente (semana del {semana_ultimo})")
+        st.write(escapar_markdown(notas_ultimo))
 
     if df["peso_corporal_kg"].notna().any():
         st.markdown("##### Peso corporal")

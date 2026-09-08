@@ -113,6 +113,13 @@ Está en `utils/analisis_progreso.py`. Vale la pena leer las 3 versiones porque 
 
 > Si esta lista vuelve a salir muy larga o muy corta, el ajuste va en esas constantes — no en la lógica.
 
+### Nota libre en el check-in semanal, 2026-09-08
+Pedido del usuario: una pregunta abierta en el check-in, mismo patrón que "Notas adicionales" del onboarding (`modules/onboarding.py:100`) — título + `st.caption` + `st.text_area` con `placeholder` (texto guía que desaparece al escribir, no un valor que haya que borrar) y `label_visibility="collapsed"`.
+
+- **El campo `notas` ya existía** en el check-in desde antes (`checkin.py`, columna `notas` de `checkin_semanal`) — como un `text_area` suelto, sin título propio ni placeholder, fácil de pasar por alto. Este cambio no lo crea, lo hace visible y le da una pregunta guía enfocada en cómo fue la semana (energía, ánimo, dolores, cambios de rutina/alimentación), igual de opcional que antes.
+- **El hueco real que se cerró de paso: el admin nunca veía estas notas en ningún lado.** El cliente las escribía "para su entrenador" pero solo se releían al reabrir su propio formulario esa semana — ningún módulo las mostraba del lado admin. Se agregó en `hevy_integration.py:_render_checkins()` (Progreso, compartida entre admin y cliente) un bloque que muestra la nota de la semana más reciente, con `escapar_markdown()` por ser texto libre del cliente — mismo tratamiento que las notas de onboarding. Como es la misma función para los dos roles, el propio cliente también ve ahí su última nota (un recordatorio de lo que escribió, no un problema).
+- Si algún día se quiere ver el **historial completo** de notas (no solo la última semana), hay que iterar `df` completo en vez de solo `ultimo` — hoy se muestra nada más la más reciente a propósito, para no alargar la página con texto libre de semanas viejas.
+
 ### "Guías y Recursos" (`modules/recursos.py`) — biblioteca de consulta, 2026-09-05
 Página nueva, al final de la navegación de ambos roles (pedido explícito del usuario: "debe salirle al final tanto al cliente como a mi admin"). Tres desplegables, en este orden: política de datos + términos, videos guía, glosario.
 
@@ -244,13 +251,13 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 | `modules/rutinas.py` | 488 | Editor de rutinas (admin) + vista del cliente. Reordenar ejercicios y días, RPE por rangos |
 | `utils/plan_alimentario.py` | 475 | Generador de dieta: alimentos, alergias, solver de macros, porciones mínimas |
 | `utils/plan_entrenamiento.py` | 457 | Generador de rutina: detección por palabras clave, ~120 ejercicios, plantillas de split |
-| `modules/checkin.py` | 403 | Check-in semanal, alertas de adherencia y deload |
+| `modules/checkin.py` | 420 | Check-in semanal, alertas de adherencia y deload |
 | `app.py` | 348 | Login, recuperación de contraseña, roles, navegación, selector de cliente, bloqueo por suscripción vencida |
 | `modules/nutricion.py` | 332 | Calculadora TDEE/macros y planificador de dieta |
 | `utils/queries.py` | 307 | **Único punto de acceso a la BD.** Ojo con la paginación en `list_historial_entrenamientos` |
 | `utils/theme.py` | 291 | CSS de identidad visual, incluidos los estilos `st-key-*` |
 | `modules/admin_clientes.py` | 264 | Gestión de clientes y suscripciones |
-| `modules/hevy_integration.py` | 287 | Página Progreso: importador de CSV, tabla de estancados, gráfica de 1RM, gráficas de check-in (6 métricas: peso, adherencia dieta/entreno, sueño, estrés, fatiga) |
+| `modules/hevy_integration.py` | 300 | Página Progreso: importador de CSV, tabla de estancados, gráfica de 1RM, gráficas de check-in (6 métricas: peso, adherencia dieta/entreno, sueño, estrés, fatiga; + nota libre del cliente si la escribió) |
 | `modules/onboarding.py` | 251 | Formulario del cliente + ficha del admin |
 | `modules/recursos.py` | 153 | Página "Guías y Recursos": política+términos, videos guía, glosario. Sin `cliente_id`, misma vista para los dos roles |
 | `utils/auth.py` | 200 | Login, registro, recuperación de contraseña, carga de rol |

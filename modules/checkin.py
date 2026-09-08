@@ -200,8 +200,18 @@ def _render_form_semana(cliente_id: str, lunes: date, etiqueta: str) -> None:
                 value=float(guardado.get("peso_corporal_kg") or 70.0), key=f"pc_{sufijo}",
             )
 
+        st.markdown("##### Notas de la semana (opcional)")
+        st.caption("Cuéntale a tu entrenador cualquier cosa que los números no digan")
         notas = st.text_area(
-            "Notas de la semana (opcional)", value=guardado.get("notas") or "", key=f"no_{sufijo}"
+            "Notas de la semana",
+            value=guardado.get("notas") or "",
+            placeholder=(
+                "¿Cómo te sentiste esta semana? Energía, ánimo, algún dolor o molestia, "
+                "cambios en tu rutina diaria o en tu alimentación...\n"
+                "Cualquier otra cosa que quieras contarle a tu entrenador."
+            ),
+            label_visibility="collapsed",
+            key=f"no_{sufijo}",
         )
 
         submitted = st.form_submit_button("💾 Guardar check-in", use_container_width=True, type="primary")
