@@ -177,6 +177,32 @@ def guardar_rutina(cliente_id: str, creado_por: str, **campos: Any) -> None:
     supabase.table("rutinas").insert(payload).execute()
 
 
+def list_plantillas_rutina() -> list[dict[str, Any]]:
+    """Plantillas de rutina guardadas por el admin (solo id/nombre; los bloques se traen aparte con
+    get_plantilla_rutina), ordenadas por nombre."""
+    supabase = get_supabase_client()
+    resp = supabase.table("plantillas_rutina").select("id, nombre, created_at").order("nombre").execute()
+    return resp.data or []
+
+
+def get_plantilla_rutina(plantilla_id: str) -> dict[str, Any] | None:
+    supabase = get_supabase_client()
+    resp = supabase.table("plantillas_rutina").select("*").eq("id", plantilla_id).maybe_single().execute()
+    return resp.data if resp else None
+
+
+def guardar_plantilla_rutina(nombre: str, bloques: list[dict[str, Any]], creado_por: str) -> None:
+    supabase = get_supabase_client()
+    supabase.table("plantillas_rutina").insert(
+        {"nombre": nombre, "bloques": bloques, "creado_por": creado_por}
+    ).execute()
+
+
+def eliminar_plantilla_rutina(plantilla_id: str) -> None:
+    supabase = get_supabase_client()
+    supabase.table("plantillas_rutina").delete().eq("id", plantilla_id).execute()
+
+
 def list_checkins(cliente_id: str) -> list[dict[str, Any]]:
     """Historial de check-ins semanales del cliente, ordenado cronológicamente."""
     supabase = get_supabase_client()

@@ -256,6 +256,25 @@ create table if not exists public.alertas_descartadas (
 comment on table public.alertas_descartadas is 'Alertas calculadas que el admin descartó de la vista, sin notificar al cliente';
 
 -- =====================================================================
+-- 10. TABLA: plantillas_rutina
+--    Rutinas guardadas por el admin para reutilizar entre clientes (ej.
+--    "Full Body 3 días", "Push Pull Legs") sin tener que rearmarlas desde
+--    cero cada vez. "bloques" guarda el mismo JSON que rutinas.bloques —
+--    cargar una plantilla es solo copiar ese JSON a la rutina que se está
+--    armando; no toca la rutina activa del cliente hasta que el admin le
+--    dé a "Guardar y notificar".
+-- =====================================================================
+create table if not exists public.plantillas_rutina (
+    id                  uuid primary key default gen_random_uuid(),
+    nombre              text not null,
+    bloques             jsonb not null,
+    creado_por          uuid references public.clientes (id) on delete set null,
+    created_at          timestamptz not null default now()
+);
+
+comment on table public.plantillas_rutina is 'Rutinas guardadas por el admin como plantilla, para reutilizar entre clientes';
+
+-- =====================================================================
 -- ÍNDICES (mejoran los filtros por cliente_id y fecha que usará el dashboard)
 -- =====================================================================
 create index if not exists idx_suscripciones_cliente on public.suscripciones (cliente_id);
@@ -670,6 +689,13 @@ alter table public.alertas_descartadas enable row level security;
 
 drop policy if exists alertas_descartadas_admin_all on public.alertas_descartadas;
 create policy alertas_descartadas_admin_all on public.alertas_descartadas
+    for all using (public.is_admin()) with check (public.is_admin());
+
+-- ---------- plantillas_rutina (exclusivo admin; el cliente nunca las ve) ----------
+alter table public.plantillas_rutina enable row level security;
+
+drop policy if exists plantillas_rutina_admin_all on public.plantillas_rutina;
+create policy plantillas_rutina_admin_all on public.plantillas_rutina
     for all using (public.is_admin()) with check (public.is_admin());
 
 -- =====================================================================

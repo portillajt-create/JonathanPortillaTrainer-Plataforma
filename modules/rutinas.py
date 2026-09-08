@@ -36,7 +36,14 @@ from utils.auth import current_cliente_id
 from utils.formato import formatear_fecha_hora
 from utils.notificaciones import crear_notificacion
 from utils.plan_entrenamiento import generar_ejemplo_rutina
-from utils.queries import get_rutina_activa, guardar_rutina
+from utils.queries import (
+    eliminar_plantilla_rutina,
+    get_plantilla_rutina,
+    get_rutina_activa,
+    guardar_plantilla_rutina,
+    guardar_rutina,
+    list_plantillas_rutina,
+)
 
 DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
 
@@ -155,6 +162,84 @@ def render_alertas_entrenamiento() -> None:
     )
 
 
+def _render_plantillas(cliente_id: str, bloques_key: str) -> None:
+    """
+    Plantillas de rutina reutilizables entre clientes (pedido del usuario,
+    2026-09-08): guardar los ejercicios que se están armando con un nombre,
+    para cargarlos de nuevo en otro cliente sin rearmar todo desde cero.
+
+    "Cargar" reemplaza TODO lo que hubiera en el editor — mismo
+    comportamiento que "Generar ejemplo de rutina" (arriba), sin diálogo de
+    confirmación extra, porque nada de esto toca la rutina activa del
+    cliente hasta que se le da a "Guardar y notificar al cliente".
+    """
+    # El expander tiene key propia para que Streamlit deje que el usuario lo
+    # abra/cierre a mano con normalidad. Si se pasara "expanded=" calculado
+    # de nuevo en cada corrida (sin key), Streamlit ignoraría cualquier clic
+    # manual del usuario y volvería siempre al valor que decide el script —
+    # el expander jamás se podría abrir por fuera de esa condición. Por eso
+    # el "abrir solo para mostrar la confirmación" se hace ACÁ, tocando el
+    # session_state de esa key ANTES de que el widget se instancie en esta
+    # corrida (no se puede después: gotcha ya conocido del proyecto).
+    expander_key = f"plantillas_expander_{cliente_id}"
+    if st.session_state.get(f"plantilla_cargada_{cliente_id}") or st.session_state.get(f"plantilla_guardada_{cliente_id}"):
+        st.session_state[expander_key] = True
+
+    with st.expander("🗂️ Plantillas de rutina (reutilizar entre clientes)", key=expander_key):
+        plantillas = list_plantillas_rutina()
+
+        if plantillas:
+            opciones = {p["nombre"]: p["id"] for p in plantillas}
+            col_sel, col_cargar, col_borrar = st.columns([3, 1, 1])
+            with col_sel:
+                nombre_elegido = st.selectbox(
+                    "Plantilla guardada", list(opciones.keys()),
+                    key=f"plantilla_sel_{cliente_id}", label_visibility="collapsed",
+                )
+            with col_cargar:
+                if st.button("📋 Cargar", key=f"cargar_plantilla_{cliente_id}", use_container_width=True):
+                    plantilla = get_plantilla_rutina(opciones[nombre_elegido]) or {}
+                    st.session_state[bloques_key] = [
+                        {**bloque, "_id": str(uuid.uuid4())} for bloque in (plantilla.get("bloques") or [])
+                    ]
+                    for dia in DIAS:
+                        st.session_state.pop(f"rutina_etiqueta_{cliente_id}_{dia}", None)
+                    st.session_state[f"plantilla_cargada_{cliente_id}"] = nombre_elegido
+                    st.rerun()
+            with col_borrar:
+                if st.button("🗑️ Borrar", key=f"borrar_plantilla_{cliente_id}", use_container_width=True):
+                    eliminar_plantilla_rutina(opciones[nombre_elegido])
+                    st.rerun()
+        else:
+            st.caption("Todavía no hay plantillas guardadas.")
+
+        # Los dos avisos de éxito se guardan como flag y se muestran recién
+        # en el siguiente render — un st.success() justo antes de
+        # st.rerun() no alcanza a verse (patrón ya conocido del proyecto).
+        cargada = st.session_state.pop(f"plantilla_cargada_{cliente_id}", None)
+        if cargada:
+            st.success(f"✅ Plantilla '{cargada}' cargada en los ejercicios de abajo.")
+        guardada = st.session_state.pop(f"plantilla_guardada_{cliente_id}", None)
+        if guardada:
+            st.success(f"✅ Plantilla '{guardada}' guardada.")
+
+        st.divider()
+        nombre_nueva = st.text_input(
+            "Guardar los ejercicios de abajo como plantilla nueva",
+            key=f"nombre_plantilla_nueva_{cliente_id}", placeholder="Ej. Full Body 3 días",
+        )
+        if st.button("💾 Guardar como plantilla", key=f"guardar_plantilla_{cliente_id}"):
+            if not nombre_nueva.strip():
+                st.warning("Ponle un nombre a la plantilla.")
+            elif not st.session_state[bloques_key]:
+                st.warning("Todavía no hay ejercicios que guardar.")
+            else:
+                bloques_limpios = [{k: v for k, v in b.items() if k != "_id"} for b in st.session_state[bloques_key]]
+                guardar_plantilla_rutina(nombre_nueva.strip(), bloques_limpios, current_cliente_id())
+                st.session_state[f"plantilla_guardada_{cliente_id}"] = nombre_nueva.strip()
+                st.rerun()
+
+
 def render_admin(cliente_id: str) -> None:
     st.subheader("Rutina del cliente")
 
@@ -240,6 +325,8 @@ def render_admin(cliente_id: str) -> None:
             "inteligencia artificial — revisa los ejercicios abajo y ajusta lo que haga falta "
             "antes de guardar."
         )
+
+    _render_plantillas(cliente_id, bloques_key)
 
     st.markdown("##### Ejercicios")
     bloques: list[dict[str, Any]] = st.session_state[bloques_key]
