@@ -186,7 +186,7 @@ def _render_plantillas(cliente_id: str, bloques_key: str) -> None:
     if st.session_state.get(f"plantilla_cargada_{cliente_id}") or st.session_state.get(f"plantilla_guardada_{cliente_id}"):
         st.session_state[expander_key] = True
 
-    with st.expander("🗂️ Plantillas de rutina (reutilizar entre clientes)", key=expander_key):
+    with st.expander("Plantillas de rutinas", key=expander_key):
         plantillas = list_plantillas_rutina()
 
         if plantillas:
