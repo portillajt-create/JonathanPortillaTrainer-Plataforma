@@ -43,6 +43,7 @@ from utils.queries import (
     guardar_plantilla_rutina,
     guardar_rutina,
     list_plantillas_rutina,
+    list_rutinas_historicas,
 )
 
 DIAS = ["Día 1", "Día 2", "Día 3", "Día 4", "Día 5", "Día 6", "Día 7"]
@@ -238,6 +239,48 @@ def _render_plantillas(cliente_id: str, bloques_key: str) -> None:
                 guardar_plantilla_rutina(nombre_nueva.strip(), bloques_limpios, current_cliente_id())
                 st.session_state[f"plantilla_guardada_{cliente_id}"] = nombre_nueva.strip()
                 st.rerun()
+
+
+def _render_historial_rutinas(cliente_id: str, rutina_activa_id: str | None) -> None:
+    """
+    Rutinas anteriores del cliente (pedido del usuario, 2026-09-08) — el
+    dato ya vivía en la tabla: guardar_rutina() nunca borra, solo
+    desactiva la rutina anterior al insertar una nueva. Esto solo lo hace
+    visible, para el admin y para el propio cliente.
+
+    Resumen compacto por rutina (una línea por día, ejercicios en texto),
+    no la vista rica de columnas/métricas de la rutina vigente — evita
+    anidar expanders (Streamlit no lo permite) y mantiene legible el
+    historial aunque tenga varias rutinas viejas.
+    """
+    historicas = [r for r in list_rutinas_historicas(cliente_id) if r.get("id") != rutina_activa_id]
+    if not historicas:
+        return
+    with st.expander(f"📜 Historial de rutinas anteriores ({len(historicas)})"):
+        for i, rutina in enumerate(historicas):
+            if i > 0:
+                st.divider()
+            bloques = rutina.get("bloques") or []
+            st.markdown(
+                f"**{rutina.get('nombre_rutina') or 'Rutina sin nombre'}** — "
+                f"asignada el {formatear_fecha_hora(rutina.get('fecha_asignacion'))} · {len(bloques)} ejercicios"
+            )
+            if rutina.get("descripcion"):
+                st.caption(rutina["descripcion"])
+
+            por_dia: dict[str, list[dict[str, Any]]] = {}
+            for bloque in bloques:
+                por_dia.setdefault(bloque.get("dia") or "Sin día asignado", []).append(bloque)
+            dias_ordenados = sorted(por_dia, key=lambda d: DIAS.index(d) if d in DIAS else len(DIAS))
+            for dia in dias_ordenados:
+                etiqueta = next((b.get("dia_etiqueta") for b in por_dia[dia] if b.get("dia_etiqueta")), "")
+                titulo_dia = f"{dia}: {etiqueta}" if etiqueta else dia
+                ejercicios_texto = ", ".join(
+                    f"{b.get('ejercicio') or 'Ejercicio sin nombre'} "
+                    f"({b.get('series') if b.get('series') is not None else '—'}x{b.get('repeticiones') or '—'})"
+                    for b in por_dia[dia]
+                )
+                st.markdown(f"- **{titulo_dia}:** {ejercicios_texto}")
 
 
 def render_admin(cliente_id: str) -> None:
@@ -499,6 +542,8 @@ def render_admin(cliente_id: str) -> None:
         time.sleep(5)
         st.rerun()
 
+    _render_historial_rutinas(cliente_id, rutina_actual.get("id") if rutina_actual else None)
+
 
 def _render_resumen_volumen(bloques: list[dict[str, Any]]) -> None:
     """Gráfico de barras con las series totales por músculo en toda la rutina."""
@@ -590,6 +635,8 @@ def render_cliente(cliente_id: str) -> None:
 
     st.divider()
     _render_resumen_volumen(bloques)
+
+    _render_historial_rutinas(cliente_id, rutina.get("id"))
 
 
 def _formatear_minutos(minutos: float | None) -> str:

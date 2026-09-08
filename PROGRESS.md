@@ -252,15 +252,15 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 | Archivo | Líneas | Para qué |
 |---|---|---|
 | `sql/001_schema_roles_rls.sql` | 713 | **Fuente de verdad del esquema**: 10 tablas, triggers, funciones `security definer`, todas las políticas RLS |
-| `modules/rutinas.py` | 597 | Editor de rutinas (admin) + vista del cliente. Reordenar ejercicios y días, RPE por rangos, plantillas reutilizables |
+| `modules/rutinas.py` | 644 | Editor de rutinas (admin) + vista del cliente. Reordenar ejercicios y días, RPE por rangos, plantillas reutilizables, historial de rutinas anteriores |
 | `utils/plan_alimentario.py` | 475 | Generador de dieta: alimentos, alergias, solver de macros, porciones mínimas |
 | `utils/plan_entrenamiento.py` | 457 | Generador de rutina: detección por palabras clave, ~120 ejercicios, plantillas de split |
 | `modules/checkin.py` | 420 | Check-in semanal, alertas de adherencia y deload |
 | `app.py` | 348 | Login, recuperación de contraseña, roles, navegación, selector de cliente, bloqueo por suscripción vencida |
-| `modules/nutricion.py` | 332 | Calculadora TDEE/macros y planificador de dieta |
-| `utils/queries.py` | 333 | **Único punto de acceso a la BD.** Ojo con la paginación en `list_historial_entrenamientos` |
+| `modules/nutricion.py` | 365 | Calculadora TDEE/macros, planificador de dieta, historial de dietas anteriores |
+| `utils/queries.py` | 362 | **Único punto de acceso a la BD.** Ojo con la paginación en `list_historial_entrenamientos` |
 | `utils/theme.py` | 291 | CSS de identidad visual, incluidos los estilos `st-key-*` |
-| `modules/admin_clientes.py` | 264 | Gestión de clientes y suscripciones |
+| `modules/admin_clientes.py` | 308 | Gestión de clientes y suscripciones. `PRECIOS_PLANES` (valores de ejemplo, ajustar) para "Ingresos estimados/mes" |
 | `modules/hevy_integration.py` | 300 | Página Progreso: importador de CSV, tabla de estancados, gráfica de 1RM, gráficas de check-in (6 métricas: peso, adherencia dieta/entreno, sueño, estrés, fatiga; + nota libre del cliente si la escribió) |
 | `modules/onboarding.py` | 251 | Formulario del cliente + ficha del admin |
 | `modules/recursos.py` | 153 | Página "Guías y Recursos": política+términos, videos guía, glosario. Sin `cliente_id`, misma vista para los dos roles |
@@ -300,14 +300,27 @@ Salió de un análisis autocrítico propio + comparación con Trainerize/TrueCoa
 - **Revisar en serio la experiencia en celular — HECHO (2026-09-08).** "Hazlo sí perfecto". Se recorrieron las 13 páginas (7 del cliente, 6 del admin) en viewport 375px con datos simulados realistas para los dos roles a la vez (`is_authenticated`/`current_role`/`session_state` mockeados, TODA `utils/queries.py` con datos de ejemplo, la app real corrida con `runpy` — sin tocar Supabase). Resultado: **un solo hallazgo real**, ya corregido — el resto (sidebar/menú de navegación, sliders y number_input en columnas que se apilan solos, RPE de 4 opciones, formularios, tablas, gráficas, plantillas de rutina) ya se veía bien sin cambios.
   - **Hallazgo y arreglo**: el selector "Periodo" de la gráfica de 1RM (`hevy_integration.py`) tiene 5 opciones; en 375px caben 4 por fila y "Todo" se envolvía a una segunda fila pegado a la izquierda, con un hueco vacío enorme al lado — porque cada botón del `segmented_control` trae `flex: 0 1 auto` (no crece para llenar el espacio). Arreglado con CSS en `utils/theme.py`, acotado por el propio `key` del widget (`st-key-hevy_periodo_<cliente_id>`, que Streamlit genera solo) para no tocar ningún otro `segmented_control` del proyecto — verificado que el RPE de 4 opciones (que sí cabe en una fila) no cambió en nada.
 
-### Aprobados EN CONCEPTO, pendientes de precisar el diseño antes de tocar código
-El usuario quiere ver cómo se vería/funcionaría antes de dar la orden de ejecutar — no asumir un diseño y construirlo directo.
+### Historial de dietas/rutinas anteriores — HECHO (2026-09-08)
+Pedido: visible para cliente **y** admin. El dato ya existía: `guardar_dieta`/`guardar_rutina` (`utils/queries.py`) nunca borran nada, solo desactivan (`activa=False`) el plan anterior al insertar uno nuevo — el histórico completo ya estaba en las tablas `dietas` y `rutinas`, solo que nadie lo consultaba.
 
-1. **Historial de dietas/rutinas anteriores visible al cliente.** El dato ya existe: `guardar_dieta`/`guardar_rutina` (`utils/queries.py`) nunca borran nada, solo desactivan (`activa=False`) el plan anterior al insertar uno nuevo — así que el histórico completo ya está en las tablas `dietas` y `rutinas`, solo que hoy nadie lo consulta (`get_dieta_activa`/`get_rutina_activa` solo traen la fila activa). Falta: una query nueva que traiga todas las filas de un cliente, y una sección en la UI (cliente y/o admin) que las liste. Pendiente de precisar con el usuario.
-2. **Recordatorios automáticos reales (check-in faltante + suscripción por vencer).** Hoy ambos avisos son "on visit" (ver §4, nota de 2026-09) — el problema de fondo que hay que resolver con cuidado: la función SQL `crear_notificacion_sistema` (única vía sin ser admin) exige `auth.uid()` no nulo y solo permite tipo `'checkin_faltante'` — un cron externo sin sesión de ningún cliente no puede usarla tal cual. Camino más limpio: GitHub Actions con cron (misma infraestructura que ya existe para el keep-alive) usando la clave `service_role` de Supabase **solo ahí, nunca en la app ni en el repo** — ese es justo el patrón de "backend seguro" que se descartó para el scraper de Hevy pero que aquí sí aplica correctamente (GitHub Actions es un entorno de servidor controlado, no público). Preguntas de producto que el usuario hizo y siguen sin decidir:
-   - Vencimiento: ¿avisar una sola vez a cuántos días de faltar (él sugirió 1 día; hoy "por vencer" en `vista_suscripciones` usa un umbral de ≤5 días), o avisar repetidamente mientras siga vencida/por vencer?
-   - Check-in: la lógica de "si ya lo reportó, no se envía" **ya existe** (`_generar_notificacion_checkin_faltante`, `checkin.py`) — no hay que inventarla. Lo que falta decidir es la frecuencia del cron (¿diario? ¿días fijos?) — no hace falta "3 veces por semana en días definidos": basta con correr el cron todos los días y dejar que la lógica ya existente decida sola si corresponde avisar (con su propio límite de un aviso por día).
-3. **Panel ejecutivo — SOLO ingresos estimados del mes** (el resto del panel, descartado). Hoy no existe ningún campo de precio/monto en el esquema (`suscripciones` no tiene columna de precio). Dos caminos, a decidir con el usuario:
-   - Precio fijo por tipo de plan (Mensual/Trimestral/Semestral), configurado una sola vez en un solo lugar — más simple, pero no cubre bien "Personalizado" (que por definición varía).
-   - Monto por cliente, agregando un campo (ej. `monto_pago`) al formulario de suscripción ya existente en `admin_clientes.py` — más flexible, cubre "Personalizado", pero el usuario debe ingresarlo cliente por cliente. El "ingreso estimado del mes" se calcularía sumando los montos de los clientes activos, normalizando trimestral/semestral a un equivalente mensual (÷3, ÷6).
-4. **Vista de calendario** (próximo check-in / vencimiento). Streamlit no trae un widget de calendario nativo — haría falta la librería `streamlit-calendar` (de terceros, gratuita) o un layout de grid armado a mano. Falta decidir con el usuario: ¿para el cliente (ver su propio próximo check-in/vencimiento), para el admin (vencimientos de todos los clientes de un vistazo), o los dos.
+- Queries nuevas: `list_dietas_historicas`/`list_rutinas_historicas` (traen todas las filas del cliente, sin filtrar por `activa`).
+- UI: `_render_historial_dietas`/`_render_historial_rutinas`, un `st.expander` **sin anidar otro expander adentro** (Streamlit no lo permite) — cada plan/rutina pasado es un bloque separado por `st.divider()`. Se llama al final de `render_admin` y `render_cliente` en `nutricion.py` y `rutinas.py`, excluyendo siempre el plan/rutina activo (ya se muestra arriba).
+- El historial de rutinas es un **resumen compacto** (una línea por día: "Día 1: Ejercicio (series x reps), …"), no la vista rica de columnas/métricas de la rutina vigente — para que no se vuelva larguísimo con varias rutinas viejas.
+- Probado con datos simulados: 2 dietas históricas + 1 rutina histórica, contenido completo y correcto en ambas.
+
+### Ingresos estimados del mes — HECHO (2026-09-08)
+Pedido: opción 1 (precio fijo por tipo de plan), confirmado que **el cliente nunca lo ve** — vive únicamente en `modules/admin_clientes.py`, que el cliente ni siquiera puede importar.
+
+- `PRECIOS_PLANES` (Mensual/Trimestral/Semestral) en `admin_clientes.py`, junto a `DURACION_MESES` que ya existía. **⚠️ Son valores de ejemplo (150.000/400.000/700.000) — el usuario debe cambiarlos por sus precios reales.** Es el único lugar donde se definen; no hay pantalla para editarlos porque casi nunca cambian.
+- `Personalizado` se excluye a propósito del cálculo (por definición no tiene un precio único) — si hay clientes con ese plan, el `help` de la métrica lo dice explícitamente.
+- Nueva 5ª métrica "Ingresos estimados/mes" en Gestión de Clientes, sumando los clientes Activos y no vencidos, con Trimestral/Semestral prorrateado a mensual (÷3, ÷6).
+- Probado con 4 clientes simulados (Mensual, Trimestral, Personalizado, Vencido): dio exactamente `$283.333` (150.000 + 400.000/3), sin contar el Personalizado ni el Vencido.
+
+### Recordatorios automáticos — lógica acordada con el usuario, esperando su confirmación final antes de tocar código
+- **Check-in de la semana pasada**: cron corre lunes/miércoles/viernes; revisa cada cliente activo con la misma `semana_a_reportar()` ya existente; si sigue sin reportarse, avisa — hasta 3 veces por semana mientras siga pendiente (mismo espíritu del "se repite mientras esté pendiente" que ya existe, solo que ligado a la pasada del cron en vez de a cada visita). **La ventana de la semana en curso (habilitada desde el jueves) no cambia** — el cron no empuja a adelantarla, solo avisa de la semana ya cerrada.
+- **Vencimiento**: se envía **una sola vez**, el día en que faltan ≤2 días — para eso, esta parte del cron corre **todos los días** (no solo L/M/V). **Pregunta sin resolver**: el badge "🟡 Por vencer" de Gestión de Clientes usa hoy un umbral de 5 días (`vista_suscripciones`) — ¿el "2 días" del usuario es solo para el aviso automático nuevo (el badge se queda en 5), o también cambia el badge visual? Si es lo segundo, hace falta otro cambio de SQL (la vista).
+- **Arquitectura**: GitHub Action con cron (misma infraestructura del keep-alive), usando la clave `service_role` de Supabase **solo ahí, nunca en la app ni en el repo** — necesaria porque `crear_notificacion_sistema` (la única vía de escritura sin ser admin) exige `auth.uid()` y solo permite el tipo `checkin_faltante`.
+- **No tocar código de esto hasta que el usuario responda la pregunta del umbral y confirme el entendimiento de la ventana del jueves.**
+
+### Vista de calendario — decidido "ambos" (cliente y admin), pendiente de construir
+Streamlit no trae un widget de calendario nativo — haría falta la librería `streamlit-calendar` (de terceros, gratuita) o un layout armado a mano. Falta precisar el diseño exacto antes de tocar código.

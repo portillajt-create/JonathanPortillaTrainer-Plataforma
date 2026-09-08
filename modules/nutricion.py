@@ -28,7 +28,7 @@ from utils.auth import current_cliente_id
 from utils.notificaciones import crear_notificacion
 from utils.formato import es_respuesta_vacia_o_negativa, escapar_markdown, formatear_fecha_hora
 from utils.plan_alimentario import generar_ejemplo_dieta
-from utils.queries import get_dieta_activa, get_onboarding, guardar_dieta
+from utils.queries import get_dieta_activa, get_onboarding, guardar_dieta, list_dietas_historicas
 
 TIPOS_DIETA = ["Flexible", "Ciclado de carbohidratos", "Definición", "Volumen", "Mantenimiento"]
 
@@ -87,6 +87,38 @@ def generar_notas_adicionales(peso_kg: float, edad: int, nivel_actividad: str, a
 
 def render_alertas_nutricion() -> None:
     checkin.render_alertas_adherencia_dieta()
+
+
+def _render_historial_dietas(cliente_id: str, dieta_activa_id: str | None) -> None:
+    """
+    Planes nutricionales anteriores del cliente (pedido del usuario,
+    2026-09-08) — el dato ya vivía en la tabla: guardar_dieta() nunca
+    borra, solo desactiva el plan anterior al insertar uno nuevo. Esto
+    solo lo hace visible, para el admin y para el propio cliente.
+
+    Sin expanders anidados a propósito (Streamlit no los permite dentro
+    de otro expander): cada plan histórico es un bloque separado por
+    st.divider(), no un expander propio.
+    """
+    historicas = [d for d in list_dietas_historicas(cliente_id) if d.get("id") != dieta_activa_id]
+    if not historicas:
+        return
+    with st.expander(f"📜 Historial de dietas anteriores ({len(historicas)})"):
+        for i, dieta in enumerate(historicas):
+            if i > 0:
+                st.divider()
+            st.markdown(
+                f"**{formatear_fecha_hora(dieta.get('fecha_actualizacion'))} — "
+                f"{dieta.get('tipo_dieta') or '—'} · {dieta.get('calorias_objetivo', 0):.0f} kcal/día**"
+            )
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Proteína", f"{dieta.get('proteinas_g', 0):.0f} g")
+            col2.metric("Carbohidratos", f"{dieta.get('carbohidratos_g', 0):.0f} g")
+            col3.metric("Grasas", f"{dieta.get('grasas_g', 0):.0f} g")
+            if dieta.get("plan_comidas"):
+                st.markdown(dieta["plan_comidas"])
+            if dieta.get("notas"):
+                st.caption(dieta["notas"])
 
 
 def render_admin(cliente_id: str) -> None:
@@ -261,6 +293,8 @@ def render_admin(cliente_id: str) -> None:
         time.sleep(5)
         st.rerun()
 
+    _render_historial_dietas(cliente_id, dieta_actual.get("id") if dieta_actual else None)
+
 
 def render_cliente(cliente_id: str) -> None:
     st.subheader("Mi Plan Nutricional")
@@ -295,6 +329,8 @@ def render_cliente(cliente_id: str) -> None:
     if dieta.get("notas"):
         st.markdown("##### 📝 Notas adicionales de tu entrenador")
         st.write(dieta["notas"])
+
+    _render_historial_dietas(cliente_id, dieta.get("id"))
 
 
 def _calcular_tmb(peso_kg: float, altura_cm: float, edad: int, sexo: str) -> float:

@@ -149,6 +149,21 @@ def guardar_dieta(cliente_id: str, actualizado_por: str, **campos: Any) -> None:
     supabase.table("dietas").insert(payload).execute()
 
 
+def list_dietas_historicas(cliente_id: str) -> list[dict[str, Any]]:
+    """Todos los planes nutricionales del cliente (activo e inactivos), del más reciente al más
+    viejo — el historial completo ya vivía en la tabla (guardar_dieta nunca borra, solo desactiva),
+    esto solo lo expone para mostrarlo."""
+    supabase = get_supabase_client()
+    resp = (
+        supabase.table("dietas")
+        .select("*")
+        .eq("cliente_id", cliente_id)
+        .order("fecha_actualizacion", desc=True)
+        .execute()
+    )
+    return resp.data or []
+
+
 def get_rutina_activa(cliente_id: str) -> dict[str, Any] | None:
     """
     Trae la rutina vigente del cliente (activa=true), igual que "dietas":
@@ -175,6 +190,20 @@ def guardar_rutina(cliente_id: str, creado_por: str, **campos: Any) -> None:
     supabase.table("rutinas").update({"activa": False}).eq("cliente_id", cliente_id).eq("activa", True).execute()
     payload = {"cliente_id": cliente_id, "creado_por": creado_por, "activa": True, **campos}
     supabase.table("rutinas").insert(payload).execute()
+
+
+def list_rutinas_historicas(cliente_id: str) -> list[dict[str, Any]]:
+    """Todas las rutinas del cliente (activa e inactivas), de la más reciente a la más vieja —
+    mismo criterio que list_dietas_historicas."""
+    supabase = get_supabase_client()
+    resp = (
+        supabase.table("rutinas")
+        .select("*")
+        .eq("cliente_id", cliente_id)
+        .order("fecha_asignacion", desc=True)
+        .execute()
+    )
+    return resp.data or []
 
 
 def list_plantillas_rutina() -> list[dict[str, Any]]:
