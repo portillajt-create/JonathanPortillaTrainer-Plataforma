@@ -31,6 +31,14 @@ def _get_config(key: str, default: str | None = None) -> str | None:
 
 APP_NAME = "Jonathan Portilla Trainer"
 
+# URL pública de la app — se agrega al final de los correos que le avisan
+# algo al cliente, para que pueda entrar directo (pedido de un cliente real,
+# 2026-09-09). scripts/recordatorios_diarios.py tiene su propia copia de esta
+# misma constante porque ese script no puede importar config.py (usa
+# streamlit y este script standalone no lo necesita) — si esta URL cambia,
+# hay que actualizarla en los dos lugares.
+URL_PLATAFORMA = "https://jonathanportillatrainer.streamlit.app"
+
 SUPABASE_URL = _get_config("SUPABASE_URL")
 SUPABASE_ANON_KEY = _get_config("SUPABASE_ANON_KEY")
 

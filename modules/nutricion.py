@@ -22,6 +22,7 @@ from datetime import date
 import plotly.graph_objects as go
 import streamlit as st
 
+from config import URL_PLATAFORMA
 from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
@@ -279,7 +280,8 @@ def render_admin(cliente_id: str) -> None:
             mensaje=(
                 f"Tu entrenador actualizó tu plan nutricional: {calorias_objetivo:.0f} kcal/día "
                 f"({proteinas_g:.0f}g proteína, {carbohidratos_g:.0f}g carbohidratos, {grasas_g:.0f}g grasas). "
-                "Revísalo en la sección 'Mi Dieta'."
+                "Revísalo en la sección 'Mi Dieta'.\n\n"
+                f"Entra aquí: {URL_PLATAFORMA}"
             ),
             creado_por=current_cliente_id(),
         )

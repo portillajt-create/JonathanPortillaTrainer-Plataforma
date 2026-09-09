@@ -56,13 +56,13 @@ def render_admin(cliente_id: str) -> None:
     st.subheader("Progreso y Métricas")
     _render_importar_hevy(cliente_id)
     _render_checkins(cliente_id)
-    _render_historial_ejercicio(cliente_id)
+    _render_historial_ejercicio(cliente_id, mostrar_estancamiento=True)
 
 
 def render_cliente(cliente_id: str) -> None:
     st.subheader("Progreso y Métricas")
     _render_checkins(cliente_id)
-    _render_historial_ejercicio(cliente_id)
+    _render_historial_ejercicio(cliente_id, mostrar_estancamiento=False)
 
 
 def _render_importar_hevy(cliente_id: str) -> None:
@@ -221,17 +221,26 @@ def _render_ejercicios_a_revisar(historial: list[dict]) -> None:
     )
 
 
-def _render_historial_ejercicio(cliente_id: str) -> None:
+def _render_historial_ejercicio(cliente_id: str, mostrar_estancamiento: bool) -> None:
     """Progreso por ejercicio a partir del historial real importado — ver
     _render_importar_hevy. Si el cliente todavía no tiene historial
     importado, esta sección no muestra nada (no hay ejercicios entre los
-    cuales elegir)."""
+    cuales elegir).
+
+    mostrar_estancamiento=False del lado del cliente (pedido del usuario,
+    2026-09-09): "Ejercicios a tener en cuenta" es solo para que el admin
+    decida si vale la pena ajustar algo — decirle directamente al cliente
+    que no progresa lo puede desmotivar sin que su entrenador medie esa
+    conversación (mismo criterio ya usado para las alertas de deload/
+    adherencia, que tampoco se le muestran al cliente). El gráfico de
+    "Progreso por ejercicio" de abajo sí es igual para los dos roles."""
     historial = list_historial_entrenamientos(cliente_id)
     if not historial:
         st.caption("⏳ Todavía no se ha cargado el historial de entrenamiento de Hevy de este cliente.")
         return
 
-    _render_ejercicios_a_revisar(historial)
+    if mostrar_estancamiento:
+        _render_ejercicios_a_revisar(historial)
 
     df = pd.DataFrame(historial)
     df["fecha"] = pd.to_datetime(df["fecha"])

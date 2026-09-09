@@ -30,6 +30,7 @@ from typing import Any
 import plotly.graph_objects as go
 import streamlit as st
 
+from config import URL_PLATAFORMA
 from modules import checkin
 from utils import theme
 from utils.auth import current_cliente_id
@@ -527,7 +528,8 @@ def render_admin(cliente_id: str) -> None:
                 titulo="Tienes una rutina nueva o actualizada",
                 mensaje=(
                     f"Tu entrenador actualizó tu rutina '{nombre_rutina}' ({len(bloques_limpios)} ejercicios). "
-                    "Revísala en la sección 'Mi Rutina'."
+                    "Revísala en la sección 'Mi Rutina'.\n\n"
+                    f"Entra aquí: {URL_PLATAFORMA}"
                 ),
                 creado_por=current_cliente_id(),
             )
