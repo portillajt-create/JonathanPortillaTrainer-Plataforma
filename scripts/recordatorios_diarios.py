@@ -66,6 +66,13 @@ SMTP_FROM = os.environ.get("SMTP_FROM") or SMTP_USER
 # depender de que el vencimiento caiga justo en uno de esos 3 días).
 DIAS_CHECKIN = {0, 2, 4}
 
+# Un cliente avisó (2026-09-09) que el correo solo traía el texto, sin forma
+# de entrar directo a la plataforma a hacer lo que se le pide. Se agrega al
+# final de cada mensaje; la mayoría de clientes de correo (Gmail, Outlook,
+# Apple Mail...) auto-detectan la URL como link aunque el correo sea texto
+# plano, sin necesidad de mandarlo como HTML.
+URL_PLATAFORMA = "https://jonathanportillatrainer.streamlit.app"
+
 
 def _enviar_email(destinatario: str | None, titulo: str, mensaje: str) -> bool:
     """Igual que utils/notificaciones.py:_enviar_email, sin depender de
@@ -142,7 +149,8 @@ def procesar_checkins_faltantes(supabase, clientes_por_id: dict[str, dict[str, A
             (
                 f"Todavía no reportaste tu check-in de la semana del {rango_semana(semana)}. "
                 "Tienes hasta el domingo para completarlo en 'Check-in Semanal' y que tu "
-                "entrenador pueda dar seguimiento a tu progreso."
+                "entrenador pueda dar seguimiento a tu progreso.\n\n"
+                f"Entra aquí: {URL_PLATAFORMA}"
             ),
             cliente.get("email"),
         )
@@ -185,7 +193,8 @@ def procesar_vencimientos(supabase, clientes_por_id: dict[str, dict[str, Any]], 
             "Tu suscripción está por vencer",
             (
                 "Tu plan de asesoría vence pronto. Contacta a tu entrenador para renovarlo y no "
-                "perder acceso a tu dieta, rutina y seguimiento."
+                "perder acceso a tu dieta, rutina y seguimiento.\n\n"
+                f"Entra aquí: {URL_PLATAFORMA}"
             ),
             cliente.get("email"),
         )
