@@ -193,8 +193,7 @@ def procesar_vencimientos(supabase, clientes_por_id: dict[str, dict[str, Any]], 
             "Tu suscripción está por vencer",
             (
                 "Tu plan de asesoría vence pronto. Contacta a tu entrenador para renovarlo y no "
-                "perder acceso a tu dieta, rutina y seguimiento.\n\n"
-                f"Entra aquí: {URL_PLATAFORMA}"
+                "perder acceso a tu dieta, rutina y seguimiento."
             ),
             cliente.get("email"),
         )
