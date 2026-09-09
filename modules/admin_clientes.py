@@ -3,9 +3,10 @@ Módulo de Gestión de Clientes y Suscripciones (EXCLUSIVO ADMIN) — Paso 2.
 
 Vista en tarjetas de todos los clientes, con:
   - Métricas rápidas (total, activos, por vencer, vencidos/inactivos).
-  - Alertas de vencimiento de suscripción, con botón para notificar al
-    cliente (se integró aquí en el rediseño visual; antes vivía en un
-    "Centro de Alertas" aparte).
+  - Alertas de vencimiento de suscripción, puramente informativas (el botón
+    manual "Recordar" se quitó el 2026-09-09: scripts/recordatorios_diarios.py
+    ya avisa solo, una vez por ciclo, cuando faltan ≤2 días — el botón
+    duplicaba el aviso si el admin también le daba clic).
   - Buscador y filtro por estado.
   - Control de estado (Activo/Inactivo), tipo de plan, fecha de último pago
     y fecha de vencimiento por cliente, con alertas visuales de días
@@ -22,9 +23,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from utils.auth import current_cliente_id
 from utils.formato import escapar_markdown
-from utils.notificaciones import crear_notificacion
 from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion, upsert_suscripcion
 
 PLANES = ["Mensual", "Trimestral", "Semestral", "Personalizado"]
@@ -169,25 +168,10 @@ def _render_alertas_vencimiento(clientes: list[dict]) -> None:
     for cliente in alertas:
         dias = cliente.get("dias_restantes")
         nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            if cliente["vencida"]:
-                st.error(f"🔴 **{nombre}** — suscripción vencida ({dias if dias is not None else '—'} días).")
-            else:
-                st.warning(f"🟡 **{nombre}** — vence en {dias} día(s).")
-        with col2:
-            if st.button("🔔 Recordar", key=f"recordar_venc_{cliente['cliente_id']}", use_container_width=True):
-                crear_notificacion(
-                    cliente["cliente_id"],
-                    tipo="alerta_vencimiento",
-                    titulo="Tu suscripción está por vencer",
-                    mensaje=(
-                        "Tu plan de asesoría vence pronto. Contacta a tu entrenador para renovarlo y no "
-                        "perder acceso a tu dieta, rutina y seguimiento."
-                    ),
-                    creado_por=current_cliente_id(),
-                )
-                st.success(f"Notificación enviada a {nombre}.")
+        if cliente["vencida"]:
+            st.error(f"🔴 **{nombre}** — suscripción vencida ({dias if dias is not None else '—'} días).")
+        else:
+            st.warning(f"🟡 **{nombre}** — vence en {dias} día(s).")
 
 
 def _badge_estado(cliente: dict) -> str:

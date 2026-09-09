@@ -12,16 +12,20 @@ aquí]).
     de esa semana, así que reenviar el formulario la misma semana
     actualiza el dato en vez de duplicarlo.
   - render_alertas_deload: semanas de descarga sugeridas (2 check-ins
-    consecutivos con fatiga/estrés altos o sueño bajo), con botón para
-    notificar al cliente. Se embebe en la página "Entrenamiento" del admin.
+    consecutivos con fatiga/estrés altos o sueño bajo). Se embebe en la
+    página "Entrenamiento" del admin. Puramente informativa (decisión del
+    usuario, 2026-09-09): sin botón para notificar al cliente ni de
+    ninguna otra forma — esa conversación la maneja el entrenador
+    directamente, igual que la tabla de estancamiento de Progreso.
   - render_alertas_adherencia_dieta: baja adherencia sostenida a la dieta
     (2 check-ins consecutivos con "adherencia a la dieta" baja), con botón
-    para notificar. Se embebe en "Nutrición y Macros" [nutricion.py, vía
-    render_alertas_nutricion].
+    para descartar la alerta (nunca para notificar al cliente). Se embebe
+    en "Nutrición y Macros" [nutricion.py, vía render_alertas_nutricion].
   - render_notificaciones_cliente: centro de notificaciones in-app del
-    cliente, con marcado de leídas. También dispara (de forma perezosa,
-    al entrar) la notificación de check-in semanal faltante si la semana
-    pasada terminó sin registro.
+    cliente, con marcado de leídas. El aviso de check-in faltante ya NO
+    se genera acá (decisión del usuario, 2026-09-09) — lo cubre
+    scripts/recordatorios_diarios.py (cron diario) para evitar avisos
+    duplicados; ver PROGRESS.md §9.
 """
 
 from __future__ import annotations
@@ -32,12 +36,10 @@ from typing import Any
 import streamlit as st
 
 from utils.auth import current_cliente_id
-from utils.formato import escapar_markdown, fecha_bogota, hoy_bogota
-from utils.notificaciones import crear_notificacion, crear_notificacion_sistema
+from utils.formato import escapar_markdown
 from utils.queries import (
     descartar_alerta,
     get_checkin_semana,
-    get_cliente,
     list_alertas_descartadas,
     list_checkins,
     list_clientes_con_suscripcion,
@@ -204,25 +206,10 @@ def render_alertas_deload() -> None:
 
     for cliente in alertas:
         nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            st.warning(
-                f"🟠 **{nombre}** — fatiga/estrés altos o sueño bajo en las últimas 2 semanas consecutivas. "
-                "Considera sugerir una semana de descarga."
-            )
-        with col2:
-            if st.button("🔔 Sugerir", key=f"recordar_deload_{cliente['cliente_id']}", use_container_width=True):
-                crear_notificacion(
-                    cliente["cliente_id"],
-                    tipo="alerta_deload",
-                    titulo="Tu entrenador sugiere una semana de descarga",
-                    mensaje=(
-                        "Según tus últimos check-ins, tu entrenador recomienda bajar la intensidad esta "
-                        "semana (semana de descarga) para recuperar mejor."
-                    ),
-                    creado_por=current_cliente_id(),
-                )
-                st.success(f"Notificación enviada a {nombre}.")
+        st.warning(
+            f"🟠 **{nombre}** — fatiga/estrés altos o sueño bajo en las últimas 2 semanas consecutivas. "
+            "Considera sugerir una semana de descarga."
+        )
 
 
 def _semana_critica(checkin: dict[str, Any]) -> bool:
@@ -272,52 +259,6 @@ def render_alertas_adherencia_dieta() -> None:
                 st.rerun()
 
 
-def _generar_notificacion_checkin_faltante(cliente_id: str) -> None:
-    """
-    Avisa si la semana anterior (ya cerrada) sigue sin reportarse. Se evalúa
-    al entrar a "Mis Notificaciones" en vez de con un cron, porque la app no
-    tiene proceso en segundo plano.
-
-    A diferencia de la versión anterior, el aviso SÍ se repite mientras el
-    check-in siga pendiente — que es lo útil, porque el cliente todavía está
-    a tiempo de llenarlo. El límite es de un aviso por día: sin ese tope,
-    cada visita a esta pantalla dispararía otro correo.
-    """
-    semana = semana_a_reportar()
-    if semana is None:
-        return  # aún no arranca el periodo de seguimiento (ver SEMANA_INICIO_CHECKINS)
-
-    cliente = get_cliente(cliente_id)
-    fecha_creacion = fecha_bogota(cliente.get("created_at") if cliente else None)
-    if fecha_creacion and fecha_creacion > semana:
-        return  # el cliente todavía no existía en esa semana
-
-    if get_checkin_semana(cliente_id, semana):
-        return  # ya la reportó: no se avisa nada
-
-    hoy = hoy_bogota()
-    ya_avisado_hoy = any(
-        n["tipo"] == "checkin_faltante" and fecha_bogota(n.get("created_at")) == hoy
-        for n in list_notificaciones(cliente_id)
-    )
-    if ya_avisado_hoy:
-        return
-
-    # crear_notificacion_sistema (no crear_notificacion): esta alerta la dispara
-    # la sesión del propio CLIENTE, y la policy de INSERT de "notificaciones"
-    # exige ser admin. Ver sql/001_schema_roles_rls.sql.
-    crear_notificacion_sistema(
-        cliente_id,
-        tipo="checkin_faltante",
-        titulo="Check-in semanal pendiente",
-        mensaje=(
-            f"Todavía no reportaste tu check-in de la semana del {_rango_semana(semana)}. "
-            "Tienes hasta el domingo para completarlo en 'Check-in Semanal' y que tu "
-            "entrenador pueda dar seguimiento a tu progreso."
-        ),
-    )
-
-
 # ---------------------------------------------------------------------------
 # Centro de notificaciones (cliente)
 # ---------------------------------------------------------------------------
@@ -328,7 +269,6 @@ def render_notificaciones_cliente(cliente_id: str) -> None:
         st.warning("No se encontró tu identificador de cliente.")
         return
 
-    _generar_notificacion_checkin_faltante(cliente_id)
     notificaciones = list_notificaciones(cliente_id)
     if not notificaciones:
         st.info("No tienes notificaciones todavía.")
