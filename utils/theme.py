@@ -148,6 +148,68 @@ h1 {
 [class*="st-key-hevy_periodo_"] [data-testid="stButtonGroup"] > div:last-child > * {
     flex: 1 1 auto !important;
 }
+
+/* Pestañas de "Check-in Semanal" (checkin.py): "Semana pasada" / "Semana
+   en curso". Tienen que saltar a la vista para que el cliente NO llene la
+   semana equivocada. Acotado por el key del contenedor
+   (st.container(key="checkin_semanas")) para no tocar las pestañas del
+   login (app.py), que son las otras st.tabs del proyecto.
+   - Las dos ocupan todo el ancho, con look de tarjeta.
+   - La ACTIVA lleva el mismo degradado cian-azul de la marca (botones
+     primary, títulos) + sombra, y su texto pasa a oscuro y negrita.
+   - La INACTIVA queda atenuada (opacity baja), para que se note de una
+     cuál está seleccionada.
+   Estructura real en streamlit 1.62: cada pestaña es un
+   <div data-testid="stTab" role="tab" aria-selected="…">, dentro de un
+   [role="tablist"]; el subrayado nativo es .react-aria-SelectionIndicator. */
+[class*="st-key-checkin_semanas"] [role="tablist"] {
+    display: flex;
+    gap: 10px;
+    overflow-x: visible;   /* si no, las dos pestañas anchas activan un scroll horizontal y aparece una flechita */
+}
+[class*="st-key-checkin_semanas"] [role="tablist"] [data-testid="stTabScrollButton"] {
+    display: none;
+}
+[class*="st-key-checkin_semanas"] [data-testid="stTab"] {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 12px;
+    padding: 12px 14px;
+    transition: none !important;   /* streamlit anima la opacity al cambiar de pestaña y se queda "pegada" en un valor intermedio; sin transición el estado activo/inactivo se aplica limpio */
+}
+[class*="st-key-checkin_semanas"] [data-testid="stTab"] p {
+    white-space: normal;   /* que el texto baje de línea en celular en vez de forzar ancho y desbordar */
+    line-height: 1.25;
+}
+/* Selectores por aria-selected=true / =false: mutuamente excluyentes y de
+   la misma especificidad, así ninguno "gana" por cascada y no se puede
+   invertir el estilo al cambiar de pestaña. */
+[class*="st-key-checkin_semanas"] [data-testid="stTab"][aria-selected="false"] {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.02);
+    opacity: 0.5;
+}
+[class*="st-key-checkin_semanas"] [data-testid="stTab"][aria-selected="false"]:hover {
+    opacity: 0.8;
+}
+[class*="st-key-checkin_semanas"] [data-testid="stTab"][aria-selected="true"] {
+    border: 1px solid transparent;
+    opacity: 1;
+    background: linear-gradient(120deg, #5EEAD4, #3B82F6);
+    box-shadow: 0 6px 18px rgba(59,130,246,0.35);
+}
+[class*="st-key-checkin_semanas"] [data-testid="stTab"][aria-selected="true"] * {
+    color: #04110F !important;
+    font-weight: 700 !important;
+}
+/* el subrayado deslizante nativo sobra: ya se distingue por el fondo */
+[class*="st-key-checkin_semanas"] .react-aria-SelectionIndicator {
+    display: none !important;
+}
 </style>
 """
 

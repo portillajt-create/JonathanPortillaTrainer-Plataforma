@@ -101,10 +101,14 @@ def render_checkin_cliente(cliente_id: str) -> None:
         _render_form_semana(cliente_id, lunes, etiqueta)
         return
 
-    tabs = st.tabs([f"{etiqueta} ({_rango_semana(lunes)})" for lunes, etiqueta in semanas])
-    for tab, (lunes, etiqueta) in zip(tabs, semanas):
-        with tab:
-            _render_form_semana(cliente_id, lunes, etiqueta)
+    # key en el contenedor para que utils/theme.py pueda resaltar SOLO estas
+    # pestañas (no las del login) — el cliente tiene que ver de lejos cuál
+    # semana está llenando para no equivocarse.
+    with st.container(key="checkin_semanas"):
+        tabs = st.tabs([f"{etiqueta}  ·  {_rango_semana(lunes)}" for lunes, etiqueta in semanas])
+        for tab, (lunes, etiqueta) in zip(tabs, semanas):
+            with tab:
+                _render_form_semana(cliente_id, lunes, etiqueta)
 
 
 def _render_form_semana(cliente_id: str, lunes: date, etiqueta: str) -> None:

@@ -147,21 +147,13 @@ def _mover_dia(cliente_id: str, bloques: list[dict[str, Any]], dia: str, direcci
 
 def render_alertas_entrenamiento() -> None:
     checkin.render_alertas_deload()
-    # Este aviso decía que la alerta de estancamiento estaba "pendiente"
-    # porque no existía historial de cargas y la integración con Hevy estaba
-    # pausada. Las dos cosas dejaron de ser ciertas: el historial se importa
-    # por CSV (ver modules/hevy_integration.py) y detectar_ejercicios_a_revisar()
-    # ya hace el análisis, visible en "Progreso" para cada cliente que tenga
-    # su historial cargado. Falta traer esa tabla también acá, junto al editor
-    # de rutina; queda para cuando haya historial importado de más clientes.
+    # Falta traer la tabla de estancamiento (detectar_ejercicios_a_revisar(),
+    # hoy visible solo en "Progreso") también acá, junto al editor de rutina.
+    # Queda para cuando haya historial de Hevy importado de más clientes.
     # Decidido con el usuario: cuando se haga, va por cliente SELECCIONADO
     # (no un barrido global como el deload, que traería miles de filas de cada
     # cliente en cada carga de la página) y es solo informativa — sin botón de
-    # notificar al cliente ni de descartar.
-    st.info(
-        "💡 Los ejercicios que un cliente sigue entrenando pero **sin progreso real de fuerza** "
-        "se listan en **Progreso**, para cada cliente que ya tenga su historial de Hevy importado."
-    )
+    # notificar al cliente ni de descartar. Ver PROGRESS.md §6.
 
 
 def _render_plantillas(cliente_id: str, bloques_key: str) -> None:
