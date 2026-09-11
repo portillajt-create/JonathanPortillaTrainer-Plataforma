@@ -61,7 +61,7 @@ six==1.17.0
 soupsieve==2.9.2
 starlette==1.6.0
 storage3==2.31.0
-streamlit==1.62.0
+streamlit==1.63.0
 streamlit-option-menu==0.4.0
 StrEnum==0.4.15
 supabase==2.31.0
