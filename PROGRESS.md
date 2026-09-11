@@ -262,7 +262,7 @@ sql/001_*.sql              Esquema, funciones, triggers y políticas RLS (acumul
 | `modules/nutricion.py` | 365 | Calculadora TDEE/macros, planificador de dieta, historial de dietas anteriores |
 | `utils/queries.py` | 362 | **Único punto de acceso a la BD.** Ojo con la paginación en `list_historial_entrenamientos` |
 | `utils/theme.py` | 291 | CSS de identidad visual, incluidos los estilos `st-key-*` |
-| `modules/admin_clientes.py` | 308 | Gestión de clientes y suscripciones. `PRECIOS_PLANES` (valores de ejemplo, ajustar) para "Ingresos estimados/mes" |
+| `modules/admin_clientes.py` | 248 | Gestión de clientes y suscripciones |
 | `modules/hevy_integration.py` | 300 | Página Progreso: importador de CSV, tabla de estancados, gráfica de 1RM, gráficas de check-in (6 métricas: peso, adherencia dieta/entreno, sueño, estrés, fatiga; + nota libre del cliente si la escribió) |
 | `modules/onboarding.py` | 251 | Formulario del cliente + ficha del admin |
 | `modules/recursos.py` | 153 | Página "Guías y Recursos": política+términos, videos guía, glosario. Sin `cliente_id`, misma vista para los dos roles |
@@ -312,13 +312,8 @@ Pedido: visible para cliente **y** admin. El dato ya existía: `guardar_dieta`/`
 - El historial de rutinas es un **resumen compacto** (una línea por día: "Día 1: Ejercicio (series x reps), …"), no la vista rica de columnas/métricas de la rutina vigente — para que no se vuelva larguísimo con varias rutinas viejas.
 - Probado con datos simulados: 2 dietas históricas + 1 rutina histórica, contenido completo y correcto en ambas.
 
-### Ingresos estimados del mes — HECHO (2026-09-08)
-Pedido: opción 1 (precio fijo por tipo de plan), confirmado que **el cliente nunca lo ve** — vive únicamente en `modules/admin_clientes.py`, que el cliente ni siquiera puede importar.
-
-- `PRECIOS_PLANES` (Mensual/Trimestral/Semestral) en `admin_clientes.py`, junto a `DURACION_MESES` que ya existía. **Precios reales confirmados por el usuario (2026-09-09): Mensual $70.000, Trimestral $180.000, Semestral $330.000 COP.** Es el único lugar donde se definen; no hay pantalla para editarlos porque casi nunca cambian — para ajustarlos en el futuro, se edita esta constante.
-- `Personalizado` se excluye a propósito del cálculo (por definición no tiene un precio único) — si hay clientes con ese plan, el `help` de la métrica lo dice explícitamente.
-- Nueva 5ª métrica "Ingresos estimados/mes" en Gestión de Clientes, sumando los clientes Activos y no vencidos, con Trimestral/Semestral prorrateado a mensual (÷3, ÷6).
-- Probado con datos simulados y los precios reales (Mensual/Trimestral/Semestral/uno por vencer): dio exactamente `$255.000` (70.000 + 180.000/3 + 330.000/6 + 70.000).
+### Ingresos estimados del mes — HECHO (2026-09-08), QUITADO (2026-09-11)
+Se construyó (precio fijo por tipo de plan, `PRECIOS_PLANES` en `admin_clientes.py`, 5ª métrica en Gestión de Clientes) pero el usuario decidió después que ya no le gustaba el cuadro y pidió quitarlo — vuelven a ser 4 métricas (Total/Activos/Por vencer/Vencidos), sin ninguna cifra de ingresos. Se eliminó también `PRECIOS_PLANES` y `_ingresos_estimados_mes()`, no quedó código muerto. `DURACION_MESES` se conserva (lo sigue usando `_calcular_vencimiento` para las fechas de vencimiento, no tiene relación con esto).
 
 ### Umbral de "Por vencer": de 5 a 2 días — HECHO (2026-09-09), SQL corrido y confirmado
 Decisión del usuario: el "2 días" de los recordatorios automáticos (ver abajo) **también** cambia el badge visual — no son dos umbrales distintos, es uno solo. Cambiado en la vista SQL `vista_suscripciones` (`fecha_vencimiento - current_date <= 2`, antes `<= 5`) y en el texto de la métrica en `admin_clientes.py` ("Por vencer (≤2 días)"). El usuario confirmó haber corrido el `create or replace view` en Supabase.

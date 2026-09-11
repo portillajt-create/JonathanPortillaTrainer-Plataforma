@@ -29,18 +29,6 @@ from utils.queries import admin_eliminar_cliente, list_clientes_con_suscripcion,
 PLANES = ["Mensual", "Trimestral", "Semestral", "Personalizado"]
 DURACION_MESES = {"Mensual": 1, "Trimestral": 3, "Semestral": 6}
 
-# Precios reales del usuario (COP), confirmados 2026-09-09. Precio fijo
-# por tipo de plan (decisión explícita de no incluir "Personalizado", que
-# por definición no tiene un precio único, ni exponer esto al cliente en
-# ningún lado — es solo para este panel de admin). Único lugar donde se
-# definen: no hay pantalla para editarlos porque casi nunca cambian; para
-# ajustarlos, se edita esta constante.
-PRECIOS_PLANES = {
-    "Mensual": 70_000,
-    "Trimestral": 180_000,
-    "Semestral": 330_000,
-}
-
 
 def _sumar_meses(fecha: date, meses: int) -> date:
     """
@@ -114,48 +102,17 @@ def render() -> None:
                 _render_form_suscripcion(cliente)
 
 
-def _ingresos_estimados_mes(clientes: list[dict]) -> tuple[int, int]:
-    """
-    (ingreso estimado del mes en COP, clientes con plan Personalizado
-    excluidos del cálculo). Solo cuenta clientes Activos y no vencidos;
-    el Trimestral/Semestral se prorratea a un equivalente mensual
-    (÷3, ÷6) para que sea comparable con el Mensual.
-    """
-    total = 0.0
-    personalizados = 0
-    for c in clientes:
-        if c["estado"] != "Activo" or c["vencida"]:
-            continue
-        plan = c.get("tipo_plan")
-        if plan == "Personalizado":
-            personalizados += 1
-            continue
-        if plan not in PRECIOS_PLANES:
-            continue
-        total += PRECIOS_PLANES[plan] / DURACION_MESES.get(plan, 1)
-    return round(total), personalizados
-
-
 def _render_metricas(clientes: list[dict]) -> None:
     total = len(clientes)
     activos = sum(1 for c in clientes if c["estado"] == "Activo" and not c["vencida"])
     por_vencer = sum(1 for c in clientes if c["por_vencer"])
     vencidos = sum(1 for c in clientes if c["vencida"] or c["estado"] == "Inactivo")
-    ingresos, personalizados = _ingresos_estimados_mes(clientes)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total clientes", total)
     col2.metric("Activos", activos)
     col3.metric("Por vencer (≤2 días)", por_vencer)
     col4.metric("Vencidos / inactivos", vencidos)
-    ayuda = (
-        "Suma los precios fijos por plan (PRECIOS_PLANES en admin_clientes.py — hoy son valores de "
-        "ejemplo, ajústalos a tus precios reales) de los clientes activos y no vencidos, prorrateando "
-        "Trimestral/Semestral a un valor mensual."
-    )
-    if personalizados:
-        ayuda += f" No incluye {personalizados} cliente(s) con plan Personalizado (no tiene un precio único)."
-    col5.metric("Ingresos estimados/mes", f"${ingresos:,.0f}".replace(",", "."), help=ayuda)
 
 
 def _render_alertas_vencimiento(clientes: list[dict]) -> None:
