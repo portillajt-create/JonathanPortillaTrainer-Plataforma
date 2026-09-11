@@ -10,7 +10,7 @@
 # `streamlit run app.py`, y solo entonces haz commit/push.
 
 # Paso 1 (obligatorias desde ya)
-streamlit==1.62.0
+streamlit==1.63.0
 supabase==2.31.0
 python-dotenv==1.2.3
 
