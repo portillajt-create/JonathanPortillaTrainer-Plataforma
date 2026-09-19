@@ -19,6 +19,7 @@ acceso correspondiente se aplica en app.py al entrar a la app como cliente.
 from __future__ import annotations
 
 import calendar
+import unicodedata
 from datetime import date, timedelta
 
 import streamlit as st
@@ -85,7 +86,7 @@ def render() -> None:
         return
 
     with st.container(key="lista_clientes"):
-        for cliente in clientes_filtrados:
+        for cliente in sorted(clientes_filtrados, key=_clave_orden):
             badge = _badge_estado(cliente)
             dias = cliente.get("dias_restantes")
             dias_txt = f" · {dias} días restantes" if dias is not None else ""
@@ -141,6 +142,24 @@ def _badge_estado(cliente: dict) -> str:
     if cliente["por_vencer"]:
         return "🟡 Por vencer"
     return "🟢 Activo"
+
+
+def _clave_orden(cliente: dict) -> tuple[int, str]:
+    """
+    Orden de la lista (pedido del usuario, 2026-09-19): primero los clientes
+    activos, después el resto; dentro de cada grupo, alfabético por nombre.
+
+    "Activo" = el mismo criterio de la métrica "Activos": estado Activo y no
+    vencido — así "Por vencer" sigue contando como activo (todavía tiene
+    acceso). Inactivos, vencidos y sin suscripción van juntos al final.
+
+    El nombre se compara sin tildes ni mayúsculas: con el orden por defecto
+    de Python, "Álvaro" quedaría después de "Zoe" y "dayana" después de "Xavier".
+    """
+    activo = cliente["estado"] == "Activo" and not cliente["vencida"]
+    nombre = (cliente["nombre_completo"] or cliente["email"] or "").strip()
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFKD", nombre) if not unicodedata.combining(c))
+    return (0 if activo else 1, sin_tildes.casefold())
 
 
 def _coincide_filtro(cliente: dict, filtro_texto: str, filtro_estado: str) -> bool:
