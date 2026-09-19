@@ -33,7 +33,7 @@ from utils.auth import (
 from utils.branding import FAVICON, ICON, LOGIN_HERO, LOGO_FULL, NOMBRE
 from utils.legal import AVISO_TRATAMIENTO_DATOS, TERMINOS_CONDICIONES
 from utils.notificaciones import notificar_admin_nuevo_cliente
-from utils.queries import get_onboarding, get_suscripcion_vista, list_clientes
+from utils.queries import get_onboarding, get_suscripcion_vista, list_clientes_con_suscripcion
 from utils.session import init_session_state
 
 st.set_page_config(page_title="Jonathan Portilla Trainer", page_icon=str(FAVICON), layout="wide")
@@ -193,12 +193,16 @@ def _render_pie_pagina() -> None:
 # mantenga al cambiar de página, hasta que el admin lo cambie de nuevo.
 # ---------------------------------------------------------------------------
 def _selector_cliente() -> str | None:
-    clientes = list_clientes()
+    # list_clientes_con_suscripcion() (no list_clientes()) porque ya viene en
+    # el orden acordado con el usuario — activos primero, luego alfabético —
+    # el mismo de la lista de Gestión de Clientes. Además, la primera opción
+    # (la que aparece preseleccionada) pasa a ser un cliente activo.
+    clientes = list_clientes_con_suscripcion()
     if not clientes:
         st.info("Todavía no hay clientes registrados.")
         return None
 
-    opciones = {f"{c['nombre_completo'] or c['email']} — {c['email']}": c["id"] for c in clientes}
+    opciones = {f"{c['nombre_completo'] or c['email']} — {c['email']}": c["cliente_id"] for c in clientes}
     with st.container(key="selector_cliente_wrap"):
         with st.container(border=True):
             st.markdown("###### 👤 Cliente seleccionado")

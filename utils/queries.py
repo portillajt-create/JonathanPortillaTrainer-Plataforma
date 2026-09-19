@@ -8,6 +8,7 @@ no repetir la misma lógica en admin_clientes.py, onboarding.py y app.py.
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Any
 
 from utils.supabase_client import get_supabase_client
@@ -44,6 +45,26 @@ def update_cliente_hevy_url(cliente_id: str, hevy_perfil_url: str) -> None:
     supabase.table("clientes").update({"hevy_perfil_url": hevy_perfil_url}).eq("id", cliente_id).execute()
 
 
+def _clave_orden_cliente(cliente: dict[str, Any]) -> tuple[int, str]:
+    """
+    Orden canónico de clientes en toda la app (pedido del usuario,
+    2026-09-19): primero los activos, después el resto; dentro de cada
+    grupo, alfabético por nombre.
+
+    "Activo" = el mismo criterio de la métrica "Activos": estado Activo y no
+    vencido — así "Por vencer" sigue contando como activo (todavía tiene
+    acceso). Inactivos, vencidos y sin suscripción van juntos al final.
+
+    El nombre se compara sin tildes ni mayúsculas: con el orden por defecto
+    de Python (o el de la BD), "Álvaro" quedaría después de "Zoe" y "dayana"
+    después de "Xavier". Sin nombre, ordena por correo.
+    """
+    activo = cliente["estado"] == "Activo" and not cliente["vencida"]
+    nombre = (cliente["nombre_completo"] or cliente["email"] or "").strip()
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFKD", nombre) if not unicodedata.combining(c))
+    return (0 if activo else 1, sin_tildes.casefold())
+
+
 def list_clientes_con_suscripcion() -> list[dict[str, Any]]:
     """
     Lista todos los clientes con los datos de su suscripción (si existe),
@@ -52,6 +73,11 @@ def list_clientes_con_suscripcion() -> list[dict[str, Any]]:
     La vista solo contiene filas de clientes que YA tienen una suscripción
     creada, así que los clientes nuevos (sin suscripción todavía) aparecen
     igual en el resultado con estado="Sin suscripción".
+
+    Ya viene ORDENADA (activos primero, luego alfabético — ver
+    _clave_orden_cliente), así que la lista de Gestión de Clientes y el
+    selector de cliente de las páginas admin comparten el mismo orden sin
+    repetir la lógica.
     """
     supabase = get_supabase_client()
     resp = (
@@ -79,7 +105,7 @@ def list_clientes_con_suscripcion() -> list[dict[str, Any]]:
                 "vencida": bool(suscripcion.get("vencida")),
             }
         )
-    return resultado
+    return sorted(resultado, key=_clave_orden_cliente)
 
 
 def get_suscripcion_vista(cliente_id: str) -> dict[str, Any] | None:
