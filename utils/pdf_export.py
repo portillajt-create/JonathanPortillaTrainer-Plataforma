@@ -1,6 +1,8 @@
 """
-PDFs descargables: ficha de onboarding (Ficha del Atleta, admin) y reporte
-de progreso (Progreso / Mi Progreso, admin y cliente).
+PDFs descargables: ficha de onboarding (Ficha del Atleta) y reporte de
+progreso (Progreso). Los dos, SOLO desde la vista del admin — el cliente no
+tiene botón de descarga en ninguna página (decisión del usuario, 2026-09-25);
+el entrenador decide si le comparte el reporte.
 
 El aspecto visual (fondo negro, logo, degradado cian-azul, tarjetas,
 gráficas) vive en utils/pdf_base.py; los comentarios de tendencia, en

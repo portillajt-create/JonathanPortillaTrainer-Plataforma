@@ -62,33 +62,38 @@ _PERIODOS_DIAS: dict[str, int | None] = {
 def render_admin(cliente_id: str) -> None:
     st.subheader("Progreso y Métricas")
     _render_importar_hevy(cliente_id)
-    _render_pagina(cliente_id)
+    checkins, historial = _render_pagina(cliente_id)
+    _render_descarga_reporte(cliente_id, checkins, historial)
 
 
 def render_cliente(cliente_id: str) -> None:
+    # Sin botón de reporte PDF a propósito (decisión del usuario, 2026-09-25):
+    # los dos PDFs (este y la ficha de onboarding) los descarga SOLO el admin.
     st.subheader("Progreso y Métricas")
     _render_pagina(cliente_id)
 
 
-def _render_pagina(cliente_id: str) -> None:
+def _render_pagina(cliente_id: str) -> tuple[list[dict], list[dict]]:
     # Check-ins e historial se cargan UNA vez y se comparten entre las
-    # gráficas y el PDF (antes cada sección los pedía por su cuenta).
+    # gráficas y el PDF del admin (antes cada sección los pedía por su cuenta).
     checkins = list_checkins(cliente_id)
     historial = list_historial_entrenamientos(cliente_id)
-    _render_descarga_reporte(cliente_id, checkins, historial)
     _render_checkins(checkins)
     _render_historial_ejercicio(cliente_id, historial)
+    return checkins, historial
 
 
 def _render_descarga_reporte(cliente_id: str, checkins: list[dict], historial: list[dict]) -> None:
     """
-    Botón del reporte PDF de progreso (utils/pdf_export.py:generar_pdf_progreso),
-    igual para admin y cliente. Arriba de todo para que se vea sin bajar
-    por las gráficas. Si todavía no hay ni check-ins ni historial, no se
-    muestra: el reporte saldría vacío.
+    Botón del reporte PDF de progreso (utils/pdf_export.py:generar_pdf_progreso).
+    SOLO en la vista del admin, al final de la página — mismo lugar que el
+    de la ficha de onboarding (decisiones del usuario, 2026-09-25). Si
+    todavía no hay ni check-ins ni historial, no se muestra: el reporte
+    saldría vacío.
     """
     if not checkins and not historial:
         return
+    st.divider()
     cliente = get_cliente(cliente_id) or {}
     onboarding = get_onboarding(cliente_id) or {}
     objetivo = onboarding.get("objetivo_principal")
