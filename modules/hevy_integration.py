@@ -44,7 +44,14 @@ from utils import theme
 from utils.analisis_progreso import calcular_e1rm, detectar_ejercicios_a_revisar
 from utils.formato import escapar_markdown, hoy_bogota
 from utils.hevy_import import parsear_csv_hevy
-from utils.queries import guardar_historial_entrenamientos, list_checkins, list_historial_entrenamientos
+from utils.pdf_export import generar_pdf_progreso
+from utils.queries import (
+    get_cliente,
+    get_onboarding,
+    guardar_historial_entrenamientos,
+    list_checkins,
+    list_historial_entrenamientos,
+)
 
 #: Periodo -> días hacia atrás desde hoy (None = sin filtro, todo el historial).
 _PERIODOS_DIAS: dict[str, int | None] = {
@@ -55,14 +62,51 @@ _PERIODOS_DIAS: dict[str, int | None] = {
 def render_admin(cliente_id: str) -> None:
     st.subheader("Progreso y Métricas")
     _render_importar_hevy(cliente_id)
-    _render_checkins(cliente_id)
-    _render_historial_ejercicio(cliente_id)
+    _render_pagina(cliente_id)
 
 
 def render_cliente(cliente_id: str) -> None:
     st.subheader("Progreso y Métricas")
-    _render_checkins(cliente_id)
-    _render_historial_ejercicio(cliente_id)
+    _render_pagina(cliente_id)
+
+
+def _render_pagina(cliente_id: str) -> None:
+    # Check-ins e historial se cargan UNA vez y se comparten entre las
+    # gráficas y el PDF (antes cada sección los pedía por su cuenta).
+    checkins = list_checkins(cliente_id)
+    historial = list_historial_entrenamientos(cliente_id)
+    _render_descarga_reporte(cliente_id, checkins, historial)
+    _render_checkins(checkins)
+    _render_historial_ejercicio(cliente_id, historial)
+
+
+def _render_descarga_reporte(cliente_id: str, checkins: list[dict], historial: list[dict]) -> None:
+    """
+    Botón del reporte PDF de progreso (utils/pdf_export.py:generar_pdf_progreso),
+    igual para admin y cliente. Arriba de todo para que se vea sin bajar
+    por las gráficas. Si todavía no hay ni check-ins ni historial, no se
+    muestra: el reporte saldría vacío.
+    """
+    if not checkins and not historial:
+        return
+    cliente = get_cliente(cliente_id) or {}
+    onboarding = get_onboarding(cliente_id) or {}
+    objetivo = onboarding.get("objetivo_principal")
+    nombre_archivo = (cliente.get("nombre_completo") or cliente.get("email") or "cliente").strip().replace(" ", "_")
+    # data como callable: se genera recién al hacer clic, en otro hilo — por
+    # eso recibe todo ya cargado y no consulta la base por su cuenta (en ese
+    # hilo no hay sesión de Streamlit ni de Supabase). on_click="ignore":
+    # descargar no recarga la página.
+    st.download_button(
+        "📄 Descargar reporte de progreso en PDF",
+        data=lambda: generar_pdf_progreso(cliente, checkins, historial, objetivo, hoy_bogota()),
+        file_name=f"progreso_{nombre_archivo}_{hoy_bogota().strftime('%Y-%m-%d')}.pdf",
+        mime="application/pdf",
+        key=f"pdf_progreso_{cliente_id}",
+        on_click="ignore",
+        type="primary",
+        use_container_width=True,
+    )
 
 
 def _render_importar_hevy(cliente_id: str) -> None:
@@ -122,8 +166,7 @@ def _render_importar_hevy(cliente_id: str) -> None:
             st.rerun()
 
 
-def _render_checkins(cliente_id: str) -> None:
-    checkins = list_checkins(cliente_id)
+def _render_checkins(checkins: list[dict]) -> None:
     if not checkins:
         st.info(
             "Todavía no hay check-ins semanales registrados para este cliente. "
@@ -221,7 +264,7 @@ def _render_ejercicios_a_revisar(historial: list[dict]) -> None:
     )
 
 
-def _render_historial_ejercicio(cliente_id: str) -> None:
+def _render_historial_ejercicio(cliente_id: str, historial: list[dict]) -> None:
     """Progreso por ejercicio a partir del historial real importado — ver
     _render_importar_hevy. Si el cliente todavía no tiene historial
     importado, esta sección no muestra nada (no hay ejercicios entre los
@@ -232,7 +275,6 @@ def _render_historial_ejercicio(cliente_id: str) -> None:
     generaba un correo — es puramente visual, un st.dataframe sin ningún
     botón ni llamado a crear_notificacion, así que no aplica el mismo
     criterio de deload/adherencia)."""
-    historial = list_historial_entrenamientos(cliente_id)
     if not historial:
         st.caption("⏳ Todavía no se ha cargado el historial de entrenamiento de Hevy de este cliente.")
         return

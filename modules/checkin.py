@@ -58,10 +58,14 @@ from utils.semanas_checkin import rango_semana as _rango_semana
 from utils.semanas_checkin import semana_a_reportar, semana_en_curso_reportable
 from utils.semanas_checkin import lunes_semana_en_curso as _lunes_semana_en_curso
 
-UMBRAL_FATIGA_ALTA = 8
-UMBRAL_ESTRES_ALTO = 8
-UMBRAL_SUENO_BAJO = 4
-UMBRAL_ADHERENCIA_DIETA_BAJA = 5
+# Umbrales de zona alta/baja: viven en utils/tendencias.py para que las
+# alertas de acá y los comentarios del PDF de progreso usen los mismos números.
+from utils.tendencias import (  # noqa: E402
+    UMBRAL_ADHERENCIA_DIETA_BAJA,
+    UMBRAL_ESTRES_ALTO,
+    UMBRAL_FATIGA_ALTA,
+    UMBRAL_SUENO_BAJO,
+)
 
 
 # ---------------------------------------------------------------------------

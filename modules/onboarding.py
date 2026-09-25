@@ -15,7 +15,7 @@ from datetime import date
 
 import streamlit as st
 
-from utils.formato import es_respuesta_vacia_o_negativa, escapar_markdown, url_hevy_valida
+from utils.formato import es_respuesta_vacia_o_negativa, escapar_markdown, hoy_bogota, url_hevy_valida
 from utils.pdf_export import generar_pdf_onboarding
 from utils.queries import get_cliente, get_onboarding, update_cliente_hevy_url, upsert_onboarding
 
@@ -223,11 +223,18 @@ def render_ficha_admin(cliente_id: str) -> None:
             st.write(escapar_markdown(datos["notas_adicionales"]))
 
     st.divider()
+    # data como callable: el PDF se genera recién al hacer clic (en otro hilo,
+    # por eso recibe los datos ya cargados y no consulta nada por su cuenta),
+    # no en cada carga de la página. on_click="ignore": descargar no recarga
+    # la pantalla.
+    nombre_archivo = (cliente.get("nombre_completo") or cliente.get("email") or "cliente").strip().replace(" ", "_")
     st.download_button(
-        "📄 Descargar resumen en PDF",
-        data=generar_pdf_onboarding(cliente, datos),
-        file_name=f"onboarding_{(cliente.get('nombre_completo') or cliente.get('email') or 'cliente').replace(' ', '_')}.pdf",
+        "📄 Descargar ficha en PDF",
+        data=lambda: generar_pdf_onboarding(cliente, datos, hoy_bogota()),
+        file_name=f"onboarding_{nombre_archivo}.pdf",
         mime="application/pdf",
+        key=f"pdf_onboarding_{cliente_id}",
+        on_click="ignore",
         use_container_width=True,
         type="primary",
     )
