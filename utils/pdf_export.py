@@ -294,7 +294,7 @@ def generar_pdf_progreso(
     # --- Fuerza ---
     # Orden pedido por el usuario (2026-09-27): primero los ejercicios SIN
     # progreso (la misma tabla "Ejercicios a tener en cuenta" de la página,
-    # siempre visible, con explicación si sale vacía) y después el top 5 de
+    # siempre visible, con explicación si sale vacía) y después el top 4 de
     # los más entrenados con su gráfica.
     pdf.seccion("Fuerza")
     if not historial:
@@ -323,11 +323,11 @@ def generar_pdf_progreso(
     comentarios_fuerza = {
         e: [t.comentario_1rm(e, series_fuerza[e], e in nombres_a_revisar)] for e in ejercicios
     }
-    # Filas de dos gráficas; si el total es impar, la última va a ancho completo.
+    # Filas de dos gráficas, siempre a media página (si queda una sola en la
+    # última fila, igual va a media página: el usuario no la quiere a ancho completo).
     filas = [ejercicios[i : i + 2] for i in range(0, len(ejercicios), 2)]
     primera_fila = (
-        max(pdf.alto_grafico(ancho_medio if len(filas[0]) == 2 else pdf.epw, comentarios_fuerza[e], alto_plot)
-            for e in filas[0])
+        max(pdf.alto_grafico(ancho_medio, comentarios_fuerza[e], alto_plot) for e in filas[0])
         if filas else 10
     )
     _subtitulo(
@@ -339,7 +339,7 @@ def generar_pdf_progreso(
     if not ejercicios:
         pdf.vinetas(["No hay ejercicios con suficientes sesiones con carga en los últimos meses para graficar."])
     for fila in filas:
-        ancho = ancho_medio if len(fila) == 2 else pdf.epw
+        ancho = ancho_medio
         alto = max(pdf.alto_grafico(ancho, comentarios_fuerza[e], alto_plot) for e in fila)
         pdf.asegurar_espacio(alto + 4)
         y = pdf.get_y()
