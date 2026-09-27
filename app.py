@@ -26,10 +26,13 @@ from utils.auth import (
     is_authenticated,
     login,
     logout,
+    mantener_sesion,
     mensaje_error_auth,
     request_password_reset,
+    restaurar_sesion,
     signup_cliente,
 )
+from utils import sesion_persistente
 from utils.branding import FAVICON, ICON, LOGIN_HERO, LOGO_FULL, NOMBRE
 from utils.legal import AVISO_TRATAMIENTO_DATOS, TERMINOS_CONDICIONES
 from utils.notificaciones import notificar_admin_nuevo_cliente
@@ -338,6 +341,17 @@ def render_cliente_shell() -> None:
 # ---------------------------------------------------------------------------
 # Enrutador principal
 # ---------------------------------------------------------------------------
+# Sesión recordada (ver utils/sesion_persistente.py): si la conexión se
+# cortó (el celular cambió de app, se bloqueó la pantalla) y esta es una
+# sesión nueva de Streamlit, se restaura desde la cookie en vez de mostrar
+# el login. Con sesión activa, renueva el token si hace falta. Y en ambos
+# casos, escribe/borra la cookie si quedó algo pendiente.
+if is_authenticated():
+    mantener_sesion()
+else:
+    restaurar_sesion()
+sesion_persistente.emitir_cookie_pendiente()
+
 _token_hash = st.query_params.get("token_hash")
 _token_type = st.query_params.get("type")
 if _token_hash and _token_type == "recovery":

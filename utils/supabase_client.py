@@ -16,6 +16,7 @@ aislado y que las políticas RLS se apliquen con la identidad correcta.
 
 import streamlit as st
 from supabase import Client, create_client
+from supabase.lib.client_options import SyncClientOptions
 
 from config import SUPABASE_ANON_KEY, SUPABASE_URL
 
@@ -31,6 +32,13 @@ def get_supabase_client() -> Client:
         st.stop()
 
     if _CLIENT_KEY not in st.session_state:
-        st.session_state[_CLIENT_KEY] = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        # auto_refresh_token=False: sin esto supabase-py renueva el token en
+        # un hilo con temporizador, y Supabase ROTA el refresh token en cada
+        # renovación — la cookie de sesión recordada (utils/sesion_persistente.py)
+        # quedaría con un token ya usado. La renovación se hace a mano, al
+        # inicio de cada corrida, en utils/auth.py:mantener_sesion().
+        st.session_state[_CLIENT_KEY] = create_client(
+            SUPABASE_URL, SUPABASE_ANON_KEY, options=SyncClientOptions(auto_refresh_token=False)
+        )
 
     return st.session_state[_CLIENT_KEY]

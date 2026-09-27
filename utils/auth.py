@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from utils import sesion_persistente
 from utils.session import clear_auth_state
 from utils.supabase_client import get_supabase_client
 
@@ -51,11 +52,7 @@ def login(email: str, password: str) -> bool:
         st.session_state["auth_error"] = "No se pudo iniciar sesión. Verifica tus credenciales."
         return False
 
-    _load_perfil(res.user.id)
-    st.session_state["user"] = res.user
-    st.session_state["access_token"] = res.session.access_token
-    st.session_state["refresh_token"] = res.session.refresh_token
-    st.session_state["cliente_id"] = res.user.id
+    _abrir_sesion(res.user, res.session)
     return True
 
 
@@ -93,11 +90,7 @@ def complete_password_reset(token_hash: str, new_password: str) -> bool:
         st.session_state["auth_error"] = mensaje_error_auth(exc, "No se pudo actualizar la contraseña.")
         return False
 
-    _load_perfil(res.user.id)
-    st.session_state["user"] = res.user
-    st.session_state["access_token"] = res.session.access_token
-    st.session_state["refresh_token"] = res.session.refresh_token
-    st.session_state["cliente_id"] = res.user.id
+    _abrir_sesion(res.user, res.session)
     return True
 
 
@@ -127,11 +120,7 @@ def complete_email_confirmation(token_hash: str) -> bool:
         st.session_state["auth_error"] = "El enlace de confirmación no es válido o ya expiró."
         return False
 
-    _load_perfil(res.user.id)
-    st.session_state["user"] = res.user
-    st.session_state["access_token"] = res.session.access_token
-    st.session_state["refresh_token"] = res.session.refresh_token
-    st.session_state["cliente_id"] = res.user.id
+    _abrir_sesion(res.user, res.session)
     return True
 
 
@@ -161,6 +150,65 @@ def logout() -> None:
         pass
     finally:
         clear_auth_state()
+        sesion_persistente.borrar_sesion()
+
+
+def _abrir_sesion(user, session, expira: float | None = None) -> None:
+    """
+    Deja al usuario autenticado en session_state (mismo camino para login,
+    recuperación de contraseña, confirmación de correo y sesión restaurada)
+    y recuerda la sesión en el navegador (utils/sesion_persistente.py).
+    `expira`: vencimiento de la cookie a conservar al restaurar/renovar —
+    las horas cuentan desde el login original, no se estiran con el uso.
+    """
+    _load_perfil(user.id)
+    st.session_state["user"] = user
+    st.session_state["access_token"] = session.access_token
+    st.session_state["refresh_token"] = session.refresh_token
+    st.session_state["cliente_id"] = user.id
+    sesion_persistente.guardar_sesion(session.refresh_token, expira)
+
+
+def restaurar_sesion() -> bool:
+    """
+    Si no hay login en esta conexión pero el navegador trae la cookie de
+    sesión recordada vigente, pide a Supabase una sesión nueva con ese
+    refresh token y deja al usuario adentro sin pedirle la contraseña.
+    """
+    guardada = sesion_persistente.leer_sesion()
+    if guardada is None:
+        return False
+    token, expira = guardada
+    try:
+        res = get_supabase_client().auth.refresh_session(token)
+    except Exception:
+        # Token revocado (cerró sesión en otro lado), ya usado o expirado.
+        sesion_persistente.borrar_sesion()
+        return False
+    if res.user is None or res.session is None:
+        sesion_persistente.borrar_sesion()
+        return False
+    _abrir_sesion(res.user, res.session, expira)
+    return True
+
+
+def mantener_sesion() -> None:
+    """
+    Al inicio de cada corrida con usuario autenticado: renueva el token de
+    acceso si está por vencer (dura 1 h) y, como Supabase rota el refresh
+    token en cada renovación, actualiza la cookie con el nuevo. Se hace aquí
+    y no en segundo plano a propósito — ver utils/supabase_client.py.
+    """
+    try:
+        session = get_supabase_client().auth.get_session()
+    except Exception:
+        return  # falla de red puntual: se reintenta en la próxima corrida
+    if session is None:
+        return
+    st.session_state["access_token"] = session.access_token
+    st.session_state["refresh_token"] = session.refresh_token
+    if session.refresh_token != sesion_persistente.token_guardado():
+        sesion_persistente.guardar_sesion(session.refresh_token, sesion_persistente.expira_guardado())
 
 
 def is_authenticated() -> bool:
