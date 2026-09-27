@@ -269,7 +269,7 @@ def generar_pdf_progreso(
             else pdf.alto_grafico(pdf.epw, comentarios_adherencia, 46)
         )
         pdf.seccion(
-            "Check-ins semanales", "Evolución semana a semana y lectura automática de la tendencia.",
+            "Check-ins semanales", "Evolución semana a semana.",
             reservar=primer_grafico,
         )
         if peso:
@@ -292,70 +292,72 @@ def generar_pdf_progreso(
         )
 
     # --- Fuerza ---
+    # Orden pedido por el usuario (2026-09-27): primero los ejercicios SIN
+    # progreso (la misma tabla "Ejercicios a tener en cuenta" de la página,
+    # siempre visible, con explicación si sale vacía) y después el top 5 de
+    # los más entrenados con su gráfica.
+    pdf.seccion("Fuerza")
+    if not historial:
+        pdf.vinetas(["Todavía no se ha cargado el historial de entrenamiento de Hevy."])
+        return bytes(pdf.output())
+
+    _subtitulo(
+        pdf, "Ejercicios a tener en cuenta",
+        "Se siguen entrenando pero sin progreso real de fuerza en las últimas sesiones, del más al menos marcado.",
+    )
+    if a_revisar:
+        pdf.tabla(
+            ["Ejercicio", "Motivo", "Última sesión"],
+            [
+                [r["Ejercicio"], r["Motivo"], date.fromisoformat(r["Última sesión"]).strftime("%d/%m/%Y")]
+                for r in a_revisar
+            ],
+            [3, 6, 1.6],
+        )
+    else:
+        pdf.vinetas([t.explicar_sin_ejercicios_a_revisar(historial, hoy)])
+
     sep = 4
-    ancho = (pdf.epw - sep) / 2
+    ancho_medio = (pdf.epw - sep) / 2
     alto_plot = 34
     comentarios_fuerza = {
         e: [t.comentario_1rm(e, series_fuerza[e], e in nombres_a_revisar)] for e in ejercicios
     }
-    pdf.seccion(
-        "Fuerza",
-        "1RM estimado (fórmula de Epley) de los ejercicios más entrenados en los últimos 3 meses, "
-        "graficado sobre los últimos 6 meses.",
-        # Si la sección abre directo con las gráficas (sin tabla de
-        # ejercicios a revisar), reservar la primera fila completa.
-        reservar=(
-            max(pdf.alto_grafico(ancho, comentarios_fuerza[e], alto_plot) for e in ejercicios[:2])
-            if ejercicios and not a_revisar else 22
-        ),
+    # Filas de dos gráficas; si el total es impar, la última va a ancho completo.
+    filas = [ejercicios[i : i + 2] for i in range(0, len(ejercicios), 2)]
+    primera_fila = (
+        max(pdf.alto_grafico(ancho_medio if len(filas[0]) == 2 else pdf.epw, comentarios_fuerza[e], alto_plot)
+            for e in filas[0])
+        if filas else 10
     )
-    if not historial:
-        pdf.escribir(
-            "Todavía no se ha cargado el historial de entrenamiento de Hevy de este cliente.",
-            pdf.epw, size=9.5, color=GRIS,
-        )
-        pdf.ln(3)
-    else:
-        if a_revisar:
-            pdf.set_x(pdf.l_margin)
-            pdf.escribir("Ejercicios a tener en cuenta", pdf.epw, size=10, estilo="B")
-            pdf.escribir(
-                "Se siguen entrenando pero sin progreso real de fuerza en las últimas sesiones, del más al menos marcado.",
-                pdf.epw, size=8.5, alto_linea=4.5, color=GRIS,
+    _subtitulo(
+        pdf, f"Top {len(ejercicios) or t.MAX_EJERCICIOS_REPORTE} ejercicios más entrenados",
+        "Los que más sesiones tuvieron en los últimos 3 meses. 1RM estimado (fórmula de Epley) "
+        "de los últimos 6 meses.",
+        reservar=primera_fila,
+    )
+    if not ejercicios:
+        pdf.vinetas(["No hay ejercicios con suficientes sesiones con carga en los últimos meses para graficar."])
+    for fila in filas:
+        ancho = ancho_medio if len(fila) == 2 else pdf.epw
+        alto = max(pdf.alto_grafico(ancho, comentarios_fuerza[e], alto_plot) for e in fila)
+        pdf.asegurar_espacio(alto + 4)
+        y = pdf.get_y()
+        for j, e in enumerate(fila):
+            pdf.set_y(y)
+            pdf.grafico_lineas(
+                e, [("1RM estimado", series_fuerza[e])], comentarios_fuerza[e],
+                alto_plot=alto_plot, area=True, ancho=ancho, x=pdf.l_margin + j * (ancho + sep), alto_min=alto,
             )
-            pdf.ln(2)
-            pdf.tabla(
-                ["Ejercicio", "Motivo", "Última sesión"],
-                [
-                    [r["Ejercicio"], r["Motivo"], date.fromisoformat(r["Última sesión"]).strftime("%d/%m/%Y")]
-                    for r in a_revisar
-                ],
-                [3, 6, 1.6],
-            )
-        if not ejercicios:
-            pdf.escribir(
-                "No hay ejercicios con suficientes sesiones con carga en los últimos meses para graficar.",
-                pdf.epw, size=9.5, color=GRIS,
-            )
-        # Dos gráficas por fila, de la misma altura.
-        for i in range(0, len(ejercicios), 2):
-            par = ejercicios[i : i + 2]
-            comentarios = {e: comentarios_fuerza[e] for e in par}
-            alto = max(pdf.alto_grafico(ancho, comentarios[e], alto_plot) for e in par)
-            pdf.asegurar_espacio(alto + 4)
-            y = pdf.get_y()
-            for j, e in enumerate(par):
-                pdf.set_y(y)
-                pdf.grafico_lineas(
-                    e, [("1RM estimado", series_fuerza[e])], comentarios[e], unidad="",
-                    alto_plot=alto_plot, area=True, ancho=ancho, x=pdf.l_margin + j * (ancho + sep), alto_min=alto,
-                )
-            pdf.set_y(y + alto + 5)
+        pdf.set_y(y + alto + 5)
 
-    pdf.ln(2)
-    pdf.escribir(
-        "Los comentarios de este reporte se generan con reglas fijas sobre tus datos (promedios de las "
-        "últimas semanas frente a las anteriores), no son un diagnóstico. Cualquier duda, háblala con tu entrenador.",
-        pdf.epw, size=7.5, alto_linea=4, color=GRIS,
-    )
     return bytes(pdf.output())
+
+
+def _subtitulo(pdf: PDFMarca, titulo: str, descripcion: str, reservar: float = 18) -> None:
+    """Subtítulo dentro de una sección, que no queda huérfano al pie de la página."""
+    pdf.asegurar_espacio(reservar + 14)
+    pdf.set_x(pdf.l_margin)
+    pdf.escribir(titulo, pdf.epw, size=10.5, estilo="B")
+    pdf.escribir(descripcion, pdf.epw, size=8.5, alto_linea=4.5, color=GRIS)
+    pdf.ln(2)

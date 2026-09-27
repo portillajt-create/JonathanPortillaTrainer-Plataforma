@@ -45,6 +45,7 @@ from utils.analisis_progreso import calcular_e1rm, detectar_ejercicios_a_revisar
 from utils.formato import escapar_markdown, hoy_bogota
 from utils.hevy_import import parsear_csv_hevy
 from utils.pdf_export import generar_pdf_progreso
+from utils.tendencias import explicar_sin_ejercicios_a_revisar
 from utils.queries import (
     get_cliente,
     get_onboarding,
@@ -251,10 +252,13 @@ def _render_ejercicios_a_revisar(historial: list[dict]) -> None:
     sus últimas sesiones — ver utils/analisis_progreso.py para las
     reglas exactas."""
     revisar = detectar_ejercicios_a_revisar(historial, hoy_bogota())
+    st.markdown("##### Ejercicios a tener en cuenta")
     if not revisar:
+        # Siempre visible: cuando no se dibujaba nada parecía que la tabla se
+        # había quitado de la plataforma (ver explicar_sin_ejercicios_a_revisar).
+        st.caption(explicar_sin_ejercicios_a_revisar(historial, hoy_bogota()))
         return
 
-    st.markdown("##### Ejercicios a tener en cuenta")
     st.caption(
         f"{len(revisar)} ejercicio{'s' if len(revisar) != 1 else ''} que el cliente sigue entrenando "
         "pero sin progreso real de fuerza en sus últimas sesiones, del más al menos marcado."

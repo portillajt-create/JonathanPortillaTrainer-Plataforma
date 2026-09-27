@@ -45,7 +45,30 @@ DELTA_1RM_ESTABLE = 0.02
 #: Ventana y selección de ejercicios del reporte (sección Fuerza).
 DIAS_VENTANA_FUERZA = 180
 DIAS_FRECUENCIA_FUERZA = 90
-MAX_EJERCICIOS_REPORTE = 4
+MAX_EJERCICIOS_REPORTE = 5
+
+
+def explicar_sin_ejercicios_a_revisar(historial: list[dict], hoy: date) -> str:
+    """
+    Qué mostrar en lugar de la tabla "Ejercicios a tener en cuenta" cuando
+    sale vacía. Antes la tabla simplemente no se dibujaba, y parecía que se
+    había quitado de la plataforma (2026-09-27: el historial importado
+    llegaba hasta el 30/08 y la regla solo mira lo entrenado en las
+    últimas SEMANAS_ACTIVO_MAX semanas, así que nada calificaba).
+    """
+    from utils.analisis_progreso import SEMANAS_ACTIVO_MAX
+
+    if not historial:
+        return "Todavía no hay historial de entrenamiento cargado para analizar."
+    ultima = max(date.fromisoformat(f["fecha"]) for f in historial)
+    semanas = (hoy - ultima).days // 7
+    if semanas > SEMANAS_ACTIVO_MAX:
+        return (
+            f"El último entrenamiento registrado es del {_fmt_fecha(ultima)} (hace {semanas} semanas). "
+            f"Este análisis revisa los ejercicios entrenados en las últimas {SEMANAS_ACTIVO_MAX} semanas, "
+            "así que se actualizará cuando se cargue el historial más reciente de Hevy."
+        )
+    return "Ningún ejercicio sin progreso: todos los que se están entrenando muestran avance en las últimas semanas."
 
 
 def _fmt_fecha(d: date) -> str:
