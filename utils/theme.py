@@ -149,6 +149,13 @@ h1 {
     flex: 1 1 auto !important;
 }
 
+/* Puente invisible con el navegador para la sesión recordada
+   (utils/sesion_persistente.py): no dibuja nada, pero Streamlit le reserva
+   el espacio de un elemento; se oculta para que no deje un hueco arriba. */
+[class*="st-key-jp_puente_sesion_wrap"] {
+    display: none !important;
+}
+
 /* Pestañas de "Check-in Semanal" (checkin.py): "Semana pasada" / "Semana
    en curso". Tienen que saltar a la vista para que el cliente NO llene la
    semana equivocada. Acotado por el key del contenedor

@@ -169,14 +169,17 @@ def _abrir_sesion(user, session, expira: float | None = None) -> None:
     sesion_persistente.guardar_sesion(session.refresh_token, expira)
 
 
-def restaurar_sesion() -> bool:
+def restaurar_sesion(valor_guardado: str) -> bool:
     """
-    Si no hay login en esta conexión pero el navegador trae la cookie de
-    sesión recordada vigente, pide a Supabase una sesión nueva con ese
-    refresh token y deja al usuario adentro sin pedirle la contraseña.
+    Si no hay login en esta conexión pero el navegador tenía la sesión
+    recordada vigente (`valor_guardado`, lo que devolvió
+    sesion_persistente.sincronizar_navegador()), pide a Supabase una sesión
+    nueva con ese refresh token y deja al usuario adentro sin contraseña.
     """
-    guardada = sesion_persistente.leer_sesion()
+    guardada = sesion_persistente.interpretar(valor_guardado)
     if guardada is None:
+        if valor_guardado:  # había algo, pero vencido o mal formado
+            sesion_persistente.borrar_sesion()
         return False
     token, expira = guardada
     try:

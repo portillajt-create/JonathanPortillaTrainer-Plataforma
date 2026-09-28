@@ -343,26 +343,20 @@ def render_cliente_shell() -> None:
 # ---------------------------------------------------------------------------
 # Sesión recordada (ver utils/sesion_persistente.py): si la conexión se
 # cortó (el celular cambió de app, se bloqueó la pantalla) y esta es una
-# sesión nueva de Streamlit, se restaura desde la cookie en vez de mostrar
-# el login. Con sesión activa, renueva el token si hace falta. Y en ambos
-# casos, escribe/borra la cookie si quedó algo pendiente.
-# DIAGNÓSTICO TEMPORAL (2026-09-27) — quitar tras revisar. Solo NOMBRES de
-# cookies/cabeceras que llegan al servidor, nunca valores.
-if st.query_params.get("diag_sesion") == "1":
-    try:
-        _nombres_cookies = sorted(st.context.cookies.keys())
-    except Exception as _e:
-        _nombres_cookies = [f"ERROR {type(_e).__name__}"]
-    st.code(
-        f"cookies: {_nombres_cookies}\n"
-        f"headers: {sorted(k.lower() for k in st.context.headers.keys())}"
-    )
-
+# sesión nueva de Streamlit, el navegador devuelve la sesión guardada y se
+# restaura en vez de mostrar el login. Con sesión activa, renueva el token
+# si hace falta. El puente también guarda/borra lo que haya quedado pendiente.
 if is_authenticated():
     mantener_sesion()
-else:
-    restaurar_sesion()
-sesion_persistente.emitir_cookie_pendiente()
+_sesion_guardada = sesion_persistente.sincronizar_navegador(sin_login=not is_authenticated())
+if _sesion_guardada and not is_authenticated():
+    restaurar_sesion(_sesion_guardada)
+    # Rerun en los dos casos: si entró, para mandarle al navegador el token
+    # nuevo (Supabase lo rotó al restaurar) y dibujar ya la app con sesión;
+    # si falló (vencida o revocada), para que el navegador borre ese valor
+    # en vez de reintentarlo en cada visita. No hay bucle: la lectura se
+    # procesa una sola vez por conexión.
+    st.rerun()
 
 _token_hash = st.query_params.get("token_hash")
 _token_type = st.query_params.get("type")
