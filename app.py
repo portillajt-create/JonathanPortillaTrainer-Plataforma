@@ -346,6 +346,18 @@ def render_cliente_shell() -> None:
 # sesión nueva de Streamlit, se restaura desde la cookie en vez de mostrar
 # el login. Con sesión activa, renueva el token si hace falta. Y en ambos
 # casos, escribe/borra la cookie si quedó algo pendiente.
+# DIAGNÓSTICO TEMPORAL (2026-09-27) — quitar tras revisar. Solo NOMBRES de
+# cookies/cabeceras que llegan al servidor, nunca valores.
+if st.query_params.get("diag_sesion") == "1":
+    try:
+        _nombres_cookies = sorted(st.context.cookies.keys())
+    except Exception as _e:
+        _nombres_cookies = [f"ERROR {type(_e).__name__}"]
+    st.code(
+        f"cookies: {_nombres_cookies}\n"
+        f"headers: {sorted(k.lower() for k in st.context.headers.keys())}"
+    )
+
 if is_authenticated():
     mantener_sesion()
 else:
