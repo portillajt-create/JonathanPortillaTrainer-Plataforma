@@ -345,6 +345,15 @@ Se construyó (precio fijo por tipo de plan, `PRECIOS_PLANES` en `admin_clientes
 ### Umbral de "Por vencer": de 5 a 2 días — HECHO (2026-09-09), SQL corrido y confirmado
 Decisión del usuario: el "2 días" de los recordatorios automáticos (ver abajo) **también** cambia el badge visual — no son dos umbrales distintos, es uno solo. Cambiado en la vista SQL `vista_suscripciones` (`fecha_vencimiento - current_date <= 2`, antes `<= 5`) y en el texto de la métrica en `admin_clientes.py` ("Por vencer (≤2 días)"). El usuario confirmó haber corrido el `create or replace view` en Supabase.
 
+### Días restantes en hora Colombia, contando hoy — HECHO en código (2026-09-27), **SQL pendiente de correr por el usuario**
+Caso real que reportó el usuario: José Vera, plan que vence el 28/09, aparecía el 27/09 en la noche con "0 días restantes". Dos bugs en `vista_suscripciones`:
+1. **Usaba `current_date`, que es la fecha del servidor de Supabase en UTC (5 h adelante de Colombia).** Desde las 7 p. m. de Colombia ya "era mañana". **Consecuencia grave**: `vencida` se volvía verdadera el día del vencimiento a las 7 p. m. → el cliente quedaba **bloqueado 5 horas antes** (el bloqueo de acceso en `app.py` y el cron usan esa columna). Ahora: `(now() at time zone 'America/Bogota')::date` (vía `cross join lateral`, una sola vez por consulta).
+2. **No contaba el día de hoy.** Regla del usuario: si vence el 28, tiene acceso hasta el 28 a las 11:59 p. m.; el 27 le quedan **2** (lo que falta de hoy + el 28 completo), el 28 queda **1** ("último día"), desde las 12:00 a. m. del 29 está vencida. Ahora `dias_restantes = fecha_vencimiento - hoy + 1`, `vencida = fecha_vencimiento < hoy`.
+- **`por_vencer` = `dias_restantes <= 2` en la cuenta nueva** (opción A, elegida por el usuario): el número del badge coincide con el que dispara el correo automático de vencimiento. En la práctica se prende un día más tarde que antes (antes: 3 días de calendario antes; ahora: el penúltimo y el último día).
+- `admin_clientes._texto_dias()`: "N días restantes" / "último día" / "venció hace N días" (con la cuenta nueva, 0 = venció ayer), en el título de cada tarjeta y en las alertas.
+- La vista ahora trae `with (security_invoker = true)` en el propio `create or replace` (además del `alter` de siempre), para que reemplazarla nunca la deje sin RLS.
+- Verificado con una simulación hora por hora del caso de José (antes: vencida el 28 a las 7 p. m.; ahora: "Por vencer · último día" todo el 28, vencida desde las 12:00 a. m. del 29).
+
 ### Recordatorios automáticos — HECHO (2026-09-08), pendiente solo de configurar credenciales en producción
 Reemplaza el modelo anterior "on visit" (el aviso de check-in solo se generaba cuando el cliente entraba a "Mis Notificaciones"; el de vencimiento exigía que el admin le diera clic a "Recordar" cliente por cliente en Gestión de Clientes).
 

@@ -53,18 +53,32 @@ comment on table public.suscripciones is 'Estado del plan/suscripción de cada c
 
 -- Vista de conveniencia: calcula días restantes y una bandera de alerta
 -- (no se puede usar columna generada porque CURRENT_DATE no es inmutable)
-create or replace view public.vista_suscripciones as
+-- Fechas en HORA COLOMBIA, no current_date (decisión del usuario, 2026-09-27).
+-- current_date es la fecha del servidor de Supabase, en UTC (5 h adelante):
+-- desde las 7 p. m. de Colombia ya "era mañana", así que un plan que vence
+-- el 28 se bloqueaba el 28 a las 7 p. m. en vez de a las 12 a. m. del 29, y
+-- los días restantes salían uno menos.
+--
+-- dias_restantes CUENTA EL DÍA DE HOY: si vence el 28, el 27 quedan 2 (lo
+-- que falta de hoy + el 28 completo), el 28 queda 1 (último día, acceso
+-- hasta las 11:59 p. m.) y desde el 29 está vencida (0 = venció ayer).
+-- por_vencer: con 2 días restantes o menos (opción A del usuario) — el mismo
+-- número que ve en pantalla es el que dispara el correo automático
+-- (scripts/recordatorios_diarios.py).
+create or replace view public.vista_suscripciones
+with (security_invoker = true) as
 select
     s.*,
     c.nombre_completo,
     c.email,
-    (s.fecha_vencimiento - current_date)                       as dias_restantes,
+    (s.fecha_vencimiento - h.hoy + 1)                          as dias_restantes,
     (s.estado = 'Activo' and s.fecha_vencimiento is not null
-        and s.fecha_vencimiento - current_date <= 2)            as por_vencer,
+        and s.fecha_vencimiento - h.hoy + 1 <= 2)               as por_vencer,
     (s.estado = 'Activo' and s.fecha_vencimiento is not null
-        and s.fecha_vencimiento < current_date)                 as vencida
+        and s.fecha_vencimiento < h.hoy)                        as vencida
 from public.suscripciones s
-join public.clientes c on c.id = s.cliente_id;
+join public.clientes c on c.id = s.cliente_id
+cross join lateral (select (now() at time zone 'America/Bogota')::date as hoy) h;
 
 -- security_invoker: sin esto, Postgres ejecuta la vista con los privilegios
 -- de quien la CREÓ (el rol del SQL Editor de Supabase, que se salta RLS),

@@ -89,8 +89,8 @@ def render() -> None:
         # luego alfabético) y el filtro conserva ese orden.
         for cliente in clientes_filtrados:
             badge = _badge_estado(cliente)
-            dias = cliente.get("dias_restantes")
-            dias_txt = f" · {dias} días restantes" if dias is not None else ""
+            texto_dias = _texto_dias(cliente.get("dias_restantes"))
+            dias_txt = f" · {texto_dias}" if texto_dias else ""
             correo_txt = "" if cliente.get("correo_confirmado") else " · ⏳ Correo sin confirmar"
             # .strip(): un nombre con espacio al final (ej. "Dayana caceres ") rompe el
             # markdown de negrita — "**texto **" con espacio antes del cierre no se
@@ -125,12 +125,30 @@ def _render_alertas_vencimiento(clientes: list[dict]) -> None:
 
     st.markdown("##### 🔔 Vencimientos de suscripción")
     for cliente in alertas:
-        dias = cliente.get("dias_restantes")
+        texto_dias = _texto_dias(cliente.get("dias_restantes")) or "sin fecha"
         nombre = escapar_markdown(cliente["nombre_completo"] or cliente["email"])
         if cliente["vencida"]:
-            st.error(f"🔴 **{nombre}** — suscripción vencida ({dias if dias is not None else '—'} días).")
+            st.error(f"🔴 **{nombre}** — suscripción vencida ({texto_dias}).")
         else:
-            st.warning(f"🟡 **{nombre}** — vence en {dias} día(s).")
+            st.warning(f"🟡 **{nombre}** — {texto_dias}.")
+
+
+def _texto_dias(dias: int | None) -> str:
+    """
+    Texto de días de la suscripción. `dias_restantes` (vista_suscripciones)
+    cuenta el día de HOY, en hora Colombia (decisión del usuario, 2026-09-27):
+    si vence el 28, el 27 quedan 2 (lo que falta de hoy + el 28 completo), el
+    28 queda 1 (último día, acceso hasta las 11:59 p. m.) y desde el 29 está
+    vencida — entonces 0 = venció ayer, -1 = hace 2 días, etc.
+    """
+    if dias is None:
+        return ""
+    if dias <= 0:
+        hace = 1 - dias
+        return f"venció hace {hace} día{'s' if hace != 1 else ''}"
+    if dias == 1:
+        return "último día"
+    return f"{dias} días restantes"
 
 
 def _badge_estado(cliente: dict) -> str:
