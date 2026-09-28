@@ -294,7 +294,7 @@ def generar_pdf_progreso(
     # --- Fuerza ---
     # Orden pedido por el usuario (2026-09-27): primero los ejercicios SIN
     # progreso (la misma tabla "Ejercicios a tener en cuenta" de la página,
-    # siempre visible, con explicación si sale vacía) y después el top 4 de
+    # siempre visible, con explicación si sale vacía) y después el top 5 de
     # los más entrenados con su gráfica.
     pdf.seccion("Fuerza")
     if not historial:

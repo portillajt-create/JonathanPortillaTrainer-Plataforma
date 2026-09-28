@@ -45,7 +45,7 @@ DELTA_1RM_ESTABLE = 0.02
 #: Ventana y selección de ejercicios del reporte (sección Fuerza).
 DIAS_VENTANA_FUERZA = 180
 DIAS_FRECUENCIA_FUERZA = 90
-MAX_EJERCICIOS_REPORTE = 4
+MAX_EJERCICIOS_REPORTE = 5
 
 
 def explicar_sin_ejercicios_a_revisar(historial: list[dict], hoy: date) -> str:
