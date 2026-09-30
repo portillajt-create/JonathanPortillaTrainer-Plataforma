@@ -4,11 +4,19 @@ name: Mantener despierta la app de Streamlit
 # reales. Un curl simple NO basta: se probó y terminó en un bucle de
 # redirecciones (la app necesita cookies + JavaScript para "despertar"),
 # así que este workflow usa un navegador real (headless, con Playwright)
-# para simular una visita de verdad cada 12 horas.
+# para simular una visita de verdad cada 4 horas.
+#
+# Por qué cada 4 h y no cada 12 (2026-09-30): Streamlit Cloud duerme la app
+# tras ~12 h sin visitas, y GitHub NO corre los cron a la hora exacta: en la
+# práctica los de "cada 12 h" llegaban con horas de retraso y dejaban huecos
+# de 12,5 a 14,5 h entre visitas (el peor, 14 h 35 min), así que la app se
+# dormía aunque todas las ejecuciones salieran "success". Con 4 h, aun con
+# retrasos, los huecos quedan muy por debajo de las 12 h. Minuto 7 y no 0:
+# el minuto 0 es cuando GitHub tiene más carga y más retrasa las tareas.
 # workflow_dispatch permite dispararlo manualmente desde la pestaña Actions.
 on:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "7 */4 * * *"
   workflow_dispatch: {}
 
 jobs:
